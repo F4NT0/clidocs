@@ -32,6 +32,7 @@ const (
 	modalGitConfig
 	modalGitSuccess
 	modalGitSyncing
+	modalEditorReady
 )
 
 type fileEntry struct {
@@ -67,6 +68,8 @@ type model struct {
 	gitCfg       GitConfig
 	gitCfgLoaded bool
 	modalInput3  textinput.Model
+
+	editorPath string
 }
 
 func newModel(dir string) model {
@@ -175,6 +178,7 @@ func openNeovim(path string) tea.Cmd {
 }
 
 type openEditorMsg struct{ path string }
+type launchEditorMsg struct{ path string }
 
 func max(a, b int) int {
 	if a > b {

@@ -111,32 +111,56 @@ func (m model) renderFoldersPanel(w, h int) string {
 	innerW := w - 2
 	innerH := h - 2
 
-	var sb strings.Builder
+	// Filter out .git and hidden git dirs
+	visible := make([]string, 0, len(m.folders))
+	for _, f := range m.folders {
+		if f == ".git" || f == ".gitignore" {
+			continue
+		}
+		visible = append(visible, f)
+	}
 
-	if len(m.folders) == 0 {
+	panelTitle := panelTitleStyle.Render(" Folders")
+	var sb strings.Builder
+	sb.WriteString(panelTitle + "\n")
+	sb.WriteString(mutedStyle.Render(strings.Repeat("─", innerW)) + "\n")
+
+	if len(visible) == 0 {
 		sb.WriteString(mutedStyle.Render("No folders yet"))
 		sb.WriteString("\n")
 		sb.WriteString(mutedStyle.Render("Press n to create"))
 	} else {
-		for i, name := range m.folders {
+		// find effective cursor in visible list
+		effIdx := 0
+		rawName := ""
+		if m.folderCursor < len(m.folders) {
+			rawName = m.folders[m.folderCursor]
+		}
+		for vi, vn := range visible {
+			if vn == rawName {
+				effIdx = vi
+				break
+			}
+		}
+
+		for i, name := range visible {
 			line := truncate(name, innerW-3)
-			if i == m.folderCursor {
-				prefix := arrowStyle.Render("→ ")
-				row := prefix + selectedItemStyle.Width(innerW - 2).Render(line)
+			if i == effIdx {
+				prefix := arrowStyle.Render("> ")
+				row := prefix + selectedItemStyle.Width(innerW-2).Render(line)
 				sb.WriteString(row)
 			} else {
-				row := "  " + normalItemStyle.Width(innerW - 2).Render(line)
+				row := "  " + normalItemStyle.Width(innerW-2).Render(line)
 				sb.WriteString(row)
 			}
 			sb.WriteString("\n")
-			if i >= innerH-1 {
+			if i >= innerH-3 {
 				break
 			}
 		}
 	}
 
 	content := sb.String()
-	// Pad to fill height
 	lines := strings.Count(content, "\n")
 	for lines < innerH {
 		content += "\n"
@@ -160,12 +184,15 @@ func (m model) renderFilesPanel(w, h int) string {
 	innerW := w - 2
 	innerH := h - 2
 
+	panelTitle := panelTitleStyle.Render(" Snippets")
 	var sb strings.Builder
+	sb.WriteString(panelTitle + "\n")
+	sb.WriteString(mutedStyle.Render(strings.Repeat("─", innerW)) + "\n")
 
 	if len(m.folders) == 0 {
 		sb.WriteString(mutedStyle.Render("Select a folder"))
 	} else if len(m.files) == 0 {
-		count := fmt.Sprintf("0 snippets")
+		count := "0 snippets"
 		sb.WriteString(mutedStyle.Render(count) + "\n\n")
 		sb.WriteString(mutedStyle.Render("Press n to create a file"))
 	} else {
@@ -181,24 +208,24 @@ func (m model) renderFilesPanel(w, h int) string {
 			rel := relativeTime(f.modTime)
 			folderName := m.currentFolderName()
 
-			maxNameW := innerW - 4
+			maxNameW := innerW - 6
 			displayName := truncate(f.name, maxNameW)
 			meta := mutedStyle.Render(folderName) + mutedStyle.Render(" • ") + mutedStyle.Render(rel)
 
 			if i == m.fileCursor {
-				nameStr := accentStyle.Render(displayName)
-				metaStr := accentStyle.Render(folderName) + mutedStyle.Render(" • ") + accentStyle.Render(rel)
-				row := iconStr + " " + nameStr + "\n" + "  " + metaStr
+				cursor := fileArrowStyle.Render("> ")
+				nameStr := lipgloss.NewStyle().Foreground(colorFgSelected).Render(displayName)
+				metaStr := mutedStyle.Render(folderName) + mutedStyle.Render(" • ") + mutedStyle.Render(rel)
+				row := cursor + iconStr + " " + nameStr + "\n" + "   " + metaStr
 				sb.WriteString(selectedItemStyle.Width(innerW).Render(row))
 			} else {
 				nameStr := normalItemStyle.Render(displayName)
-				row := iconStr + " " + nameStr + "\n" + "  " + meta
+				row := "  " + iconStr + " " + nameStr + "\n" + "   " + meta
 				sb.WriteString(normalItemStyle.Width(innerW).Render(row))
 			}
 			sb.WriteString("\n\n")
 
-			// break if we exceed height
-			usedLines := 2 + (i+1)*3
+			usedLines := 4 + (i+1)*3
 			if usedLines >= innerH {
 				break
 			}
@@ -227,14 +254,25 @@ func (m model) renderPreviewPanel(w, h int) string {
 	isActive := m.activePanel == panelPreview
 
 	innerH := h - 2
-	innerW := w - 4
 
-	var content string
+	fileName := m.currentFileName()
+	panelLabel := " Preview"
+	if fileName != "" {
+		icon, iconColor := getFileIcon(fileName)
+		iconStr := lipgloss.NewStyle().Foreground(iconColor).Render(icon)
+		panelLabel = " " + iconStr + " " + fileName
+	}
+	panelTitle := panelTitleStyle.Render(panelLabel)
+
+	var contentLines []string
+	contentLines = append(contentLines, panelTitle)
+	contentLines = append(contentLines, mutedStyle.Render(strings.Repeat("─", w-4)))
+
 	if m.previewHighlight == "" {
 		if len(m.files) == 0 {
-			content = mutedStyle.Render("No file selected")
+			contentLines = append(contentLines, mutedStyle.Render("No file selected"))
 		} else {
-			content = mutedStyle.Render("Empty file")
+			contentLines = append(contentLines, mutedStyle.Render("Empty file — press Enter to edit"))
 		}
 	} else {
 		lines := strings.Split(m.previewHighlight, "\n")
@@ -242,15 +280,15 @@ func (m model) renderPreviewPanel(w, h int) string {
 		if start > len(lines)-1 {
 			start = max(0, len(lines)-1)
 		}
-		end := start + innerH
+		availH := innerH - 2 // 2 lines used by title + separator
+		end := start + availH
 		if end > len(lines) {
 			end = len(lines)
 		}
-		visible := lines[start:end]
-		content = strings.Join(visible, "\n")
+		contentLines = append(contentLines, lines[start:end]...)
 	}
 
-	_ = innerW
+	content := strings.Join(contentLines, "\n")
 
 	style := panelStyle
 	if isActive {
@@ -319,6 +357,46 @@ func (m model) renderGitSuccessModal() string {
 	)
 }
 
+func (m model) renderEditorReadyModal() string {
+	filename := ""
+	if m.editorPath != "" {
+		parts := strings.Split(strings.ReplaceAll(m.editorPath, "\\", "/"), "/")
+		filename = parts[len(parts)-1]
+	}
+	icon, iconColor := getFileIcon(filename)
+	iconStr := lipgloss.NewStyle().Foreground(iconColor).Render(icon)
+
+	title := modalTitleStyle.Render(" Open in Neovim")
+	fileStr := lipgloss.NewStyle().Foreground(colorFg).Render(iconStr + " " + filename)
+	sep := mutedStyle.Render(strings.Repeat("─", 46))
+
+	info := lipgloss.NewStyle().Foreground(colorFg).Render(
+		" Opens Neovim in a new Windows Terminal window.",
+	)
+	step1 := mutedStyle.Render("1. Edit your file in Neovim")
+	step2 := mutedStyle.Render("2. Save and exit Neovim   " + lipgloss.NewStyle().Foreground(colorFgSelected).Render(":wq"))
+	step3 := mutedStyle.Render("3. Close the terminal tab  " + lipgloss.NewStyle().Foreground(colorFgSelected).Bold(true).Render("exit"))
+	step4 := mutedStyle.Render("4. Back here, press        " + lipgloss.NewStyle().Foreground(colorFgSelected).Bold(true).Render("r") + mutedStyle.Render("  to reload preview"))
+
+	help := helpStyle.Render("Enter: open editor  Esc: cancel")
+
+	return modalStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left,
+			title,
+			"",
+			fileStr,
+			sep,
+			info,
+			"",
+			step1,
+			step2,
+			step3,
+			step4,
+			help,
+		),
+	)
+}
+
 func (m model) renderGitSyncingModal() string {
 	title := mutedStyle.Render(" Syncing to GitHub...")
 	spinner := accentStyle.Render("Please wait")
@@ -328,7 +406,7 @@ func (m model) renderGitSyncingModal() string {
 }
 
 func (m model) renderStatusBar() string {
-	help := "Tab: panel  ↑↓: nav  Enter: edit  n: new  g: sync GitHub  G: git config  q: quit"
+	help := "Tab: panel  ↑↓: nav  Enter: edit  n: new  r: reload  g: sync  G: git config  q: quit"
 	if m.statusMsg != "" {
 		help = m.statusMsg
 	}
@@ -359,6 +437,8 @@ func (m model) renderWithModal() string {
 		modal = m.renderGitSuccessModal()
 	case modalGitSyncing:
 		modal = m.renderGitSyncingModal()
+	case modalEditorReady:
+		modal = m.renderEditorReadyModal()
 	}
 
 	return overlayModal(base, modal, m.width, m.height)

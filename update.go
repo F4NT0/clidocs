@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -19,13 +20,50 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case openEditorMsg:
-		nvim, err := exec.LookPath("nvim")
+		_, err := exec.LookPath("nvim")
 		if err != nil {
 			m.modal = modalError
 			m.modalError = "Neovim (nvim) not found in PATH.\nPlease install and configure Neovim to edit files."
 			return m, nil
 		}
-		c := exec.Command(nvim, msg.path)
+		m.modal = modalEditorReady
+		m.editorPath = msg.path
+		return m, nil
+
+	case launchEditorMsg:
+		// Try to open in a new Windows Terminal window
+		wt, wtErr := exec.LookPath("wt")
+		if wtErr == nil {
+			// wt opens a new window; pwsh stays open after nvim exits
+			pwsh := "pwsh"
+			if _, err := exec.LookPath("pwsh"); err != nil {
+				pwsh = "powershell"
+			}
+			safePath := strings.ReplaceAll(msg.path, `"`, `\"`)
+			wtArgs := []string{
+				"--window", "new",
+				"new-tab",
+				"--title", "clidocs editor",
+				pwsh,
+				"-NoLogo", "-NoExit",
+				"-Command", fmt.Sprintf(`nvim "%s"`, safePath),
+			}
+			c := exec.Command(wt, wtArgs...)
+			if err := c.Start(); err == nil {
+				// WT launched detached — immediately return to TUI
+				// Reload preview after a short moment when user comes back
+				m.statusMsg = "Editing in new Windows Terminal window — reload with r"
+				return m, nil
+			}
+		}
+		// Fallback: take over the current terminal (old behaviour)
+		pwsh := "pwsh"
+		if _, err := exec.LookPath("pwsh"); err != nil {
+			pwsh = "powershell"
+		}
+		safePath := strings.ReplaceAll(msg.path, `"`, `\"`)
+		args := []string{"-NoLogo", "-NoExit", "-Command", fmt.Sprintf(`nvim "%s"`, safePath)}
+		c := exec.Command(pwsh, args...)
 		c.Stdin = os.Stdin
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr
@@ -157,8 +195,13 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "G":
 		m.openGitConfigModal()
 
+	case "r":
+		m.loadFiles()
+		m.loadPreview()
+		m.statusMsg = ""
+
 	case "?":
-		m.statusMsg = "Tab/→←: panel | ↑↓: nav | Enter: edit | n: new | g: sync GitHub | G: git config | q: quit"
+		m.statusMsg = "Tab/→←: panel | ↑↓: nav | Enter: edit | n: new | r: reload | g: sync | G: git config | q: quit"
 	}
 
 	return m, nil
@@ -235,6 +278,17 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case modalGitSyncing:
 		// waiting for async result, ignore keys
+		return m, nil
+
+	case modalEditorReady:
+		switch msg.String() {
+		case "enter":
+			m.modal = modalNone
+			path := m.editorPath
+			return m, func() tea.Msg { return launchEditorMsg{path: path} }
+		case "esc", "q":
+			m.modal = modalNone
+		}
 		return m, nil
 
 	case modalGitSetup, modalGitConfig:

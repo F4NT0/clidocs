@@ -14,6 +14,7 @@ var (
 	colorAccentBlue  = lipgloss.Color("#58a6ff")
 	colorBorder      = lipgloss.Color("#30363d")
 	colorArrow       = lipgloss.Color("#e6edf3")
+	colorOrange      = lipgloss.Color("#e8912d")
 
 	baseStyle = lipgloss.NewStyle().
 			Background(colorBg).
@@ -41,7 +42,7 @@ var (
 				Padding(0, 1)
 
 	selectedItemStyle = lipgloss.NewStyle().
-				Background(colorBgSelected).
+				Background(colorBgPanel).
 				Foreground(colorFgSelected)
 
 	normalItemStyle = lipgloss.NewStyle().
@@ -49,15 +50,21 @@ var (
 			Foreground(colorFg)
 
 	arrowStyle = lipgloss.NewStyle().
-			Foreground(colorArrow).
-			Bold(true)
+			Foreground(colorOrange)
+
+	fileArrowStyle = lipgloss.NewStyle().
+			Foreground(colorOrange)
+
+	panelTitleStyle = lipgloss.NewStyle().
+			Foreground(colorFgMuted).
+			Bold(true).
+			MarginBottom(0)
 
 	mutedStyle = lipgloss.NewStyle().
 			Foreground(colorFgMuted)
 
 	accentStyle = lipgloss.NewStyle().
-			Foreground(colorAccent).
-			Bold(true)
+			Foreground(colorAccent)
 
 	blueStyle = lipgloss.NewStyle().
 			Foreground(colorAccentBlue)
