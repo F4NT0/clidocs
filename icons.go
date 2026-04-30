@@ -12,48 +12,70 @@ type langInfo struct {
 	color lipgloss.Color
 }
 
+// Icons are the extension label shown to the left of the filename.
+// Colors follow the language's official/community color.
 var extMap = map[string]langInfo{
-	".go":    {icon: "", color: "#00add8"},
-	".js":    {icon: "", color: "#f0db4f"},
-	".ts":    {icon: "", color: "#3178c6"},
-	".tsx":   {icon: "", color: "#61dafb"},
-	".jsx":   {icon: "", color: "#61dafb"},
-	".py":    {icon: "", color: "#3572a5"},
-	".rs":    {icon: "", color: "#dea584"},
-	".sh":    {icon: "", color: "#89e051"},
-	".bash":  {icon: "", color: "#89e051"},
-	".ps1":   {icon: "", color: "#012456"},
-	".json":  {icon: "", color: "#f1c40f"},
-	".yaml":  {icon: "", color: "#cb171e"},
-	".yml":   {icon: "", color: "#cb171e"},
-	".toml":  {icon: "", color: "#9c4221"},
-	".md":    {icon: "", color: "#519aba"},
-	".html":  {icon: "", color: "#e34c26"},
-	".css":   {icon: "", color: "#264de4"},
-	".scss":  {icon: "", color: "#c6538c"},
-	".c":     {icon: "", color: "#555555"},
-	".cpp":   {icon: "", color: "#f34b7d"},
-	".cs":    {icon: "󰌛", color: "#178600"},
-	".java":  {icon: "", color: "#b07219"},
-	".rb":    {icon: "", color: "#701516"},
-	".php":   {icon: "", color: "#4f5d95"},
-	".lua":   {icon: "", color: "#000080"},
-	".vim":   {icon: "", color: "#199f4b"},
-	".sql":   {icon: "", color: "#e38c00"},
-	".xml":   {icon: "󰗀", color: "#0060ac"},
-	".txt":   {icon: "", color: "#6e7681"},
-	".conf":  {icon: "", color: "#6e7681"},
-	".env":   {icon: "", color: "#ecd53f"},
-	".dockerfile": {icon: "", color: "#0db7ed"},
-	".kt":    {icon: "", color: "#7f52ff"},
-	".swift": {icon: "", color: "#f05138"},
-	".r":     {icon: "󰟔", color: "#198ce7"},
+	".go":         {icon: "go",     color: "#00add8"}, // Go cyan
+	".js":         {icon: "js",     color: "#f0db4f"}, // JS yellow
+	".ts":         {icon: "ts",     color: "#3178c6"}, // TS blue
+	".tsx":        {icon: "tsx",    color: "#61dafb"}, // React light blue
+	".jsx":        {icon: "jsx",    color: "#61dafb"},
+	".py":         {icon: "py",     color: "#4b9cd3"}, // Python light blue
+	".rs":         {icon: "rs",     color: "#ce422b"}, // Rust orange-red
+	".sh":         {icon: "sh",     color: "#89e051"}, // Shell light green
+	".bash":       {icon: "sh",     color: "#89e051"},
+	".zsh":        {icon: "zsh",    color: "#89e051"},
+	".ps1":        {icon: "ps1",    color: "#5391fe"}, // PowerShell medium blue
+	".psm1":       {icon: "psm",    color: "#5391fe"},
+	".psd1":       {icon: "psd",    color: "#5391fe"},
+	".json":       {icon: "json",   color: "#f1c40f"}, // JSON yellow
+	".yaml":       {icon: "yml",    color: "#f1c40f"}, // YAML yellow
+	".yml":        {icon: "yml",    color: "#f1c40f"},
+	".toml":       {icon: "toml",   color: "#e67e22"}, // TOML orange
+	".md":         {icon: "md",     color: "#519aba"}, // Markdown steel blue
+	".mdx":        {icon: "mdx",    color: "#519aba"},
+	".html":       {icon: "html",   color: "#e34c26"}, // HTML orange-red
+	".htm":        {icon: "html",   color: "#e34c26"},
+	".css":        {icon: "css",    color: "#264de4"}, // CSS blue
+	".scss":       {icon: "scss",   color: "#c6538c"}, // SCSS pink
+	".sass":       {icon: "sass",   color: "#c6538c"},
+	".c":          {icon: "c",      color: "#6e9bd1"}, // C light blue-grey
+	".h":          {icon: "h",      color: "#6e9bd1"},
+	".cpp":        {icon: "cpp",    color: "#f34b7d"}, // C++ pink
+	".cc":         {icon: "cpp",    color: "#f34b7d"},
+	".cs":         {icon: "cs",     color: "#9b4f96"}, // C# purple
+	".java":       {icon: "java",   color: "#b07219"}, // Java brown-orange
+	".kt":         {icon: "kt",     color: "#7f52ff"}, // Kotlin purple
+	".kts":        {icon: "kts",    color: "#7f52ff"},
+	".swift":      {icon: "swift",  color: "#f05138"}, // Swift orange-red
+	".rb":         {icon: "rb",     color: "#cc342d"}, // Ruby red
+	".php":        {icon: "php",    color: "#777bb3"}, // PHP purple-grey
+	".lua":        {icon: "lua",    color: "#00007c"}, // Lua dark blue
+	".vim":        {icon: "vim",    color: "#199f4b"}, // Vim green
+	".sql":        {icon: "sql",    color: "#e38c00"}, // SQL amber
+	".xml":        {icon: "xml",    color: "#0060ac"}, // XML blue
+	".txt":        {icon: "txt",    color: "#6e7681"}, // plain muted
+	".conf":       {icon: "conf",   color: "#6e7681"},
+	".cfg":        {icon: "cfg",    color: "#6e7681"},
+	".ini":        {icon: "ini",    color: "#6e7681"},
+	".env":        {icon: "env",    color: "#ecd53f"}, // dotenv yellow
+	".r":          {icon: "r",      color: "#198ce7"}, // R blue
+	".ex":         {icon: "ex",     color: "#6e4a7e"}, // Elixir purple
+	".exs":        {icon: "exs",    color: "#6e4a7e"},
+	".dart":       {icon: "dart",   color: "#00b4ab"}, // Dart teal
+	".vue":        {icon: "vue",    color: "#42b883"}, // Vue green
+	".svelte":     {icon: "svelte", color: "#ff3e00"}, // Svelte orange
+	".tf":         {icon: "tf",     color: "#7b42bc"}, // Terraform purple
+	".hcl":        {icon: "hcl",    color: "#7b42bc"},
+	".dockerfile": {icon: "dock",   color: "#0db7ed"}, // Docker light blue
 }
 
 var nameMap = map[string]langInfo{
-	"dockerfile": {icon: "", color: "#0db7ed"},
-	"makefile":   {icon: "", color: "#427819"},
-	"jenkinsfile": {icon: "", color: "#d24939"},
+	"dockerfile":  {icon: "dock", color: "#0db7ed"},
+	"makefile":    {icon: "make", color: "#6d8086"},
+	"jenkinsfile": {icon: "jenk", color: "#d24939"},
+	".gitignore":  {icon: "git",  color: "#f05033"},
+	".gitconfig":  {icon: "git",  color: "#f05033"},
 }
 
 func getFileIcon(filename string) (string, lipgloss.Color) {
@@ -65,7 +87,11 @@ func getFileIcon(filename string) (string, lipgloss.Color) {
 	if info, ok := extMap[ext]; ok {
 		return info.icon, info.color
 	}
-	return "", "#6e7681"
+	// fallback: use raw extension without dot, muted color
+	if ext != "" {
+		return strings.TrimPrefix(ext, "."), "#6e7681"
+	}
+	return "file", "#6e7681"
 }
 
 func chromaLexerForFile(filename string) string {

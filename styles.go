@@ -4,8 +4,8 @@ import "github.com/charmbracelet/lipgloss"
 
 var (
 	colorBg          = lipgloss.Color("#0d1117")
-	colorBgPanel     = lipgloss.Color("#161b22")
-	colorBgSelected  = lipgloss.Color("#1c2128")
+	colorBgPanel     = lipgloss.Color("#0d1117")
+	colorBgSelected  = lipgloss.Color("#0d1117")
 	colorBgActive    = lipgloss.Color("#e6edf3")
 	colorFg          = lipgloss.Color("#c9d1d9")
 	colorFgMuted     = lipgloss.Color("#6e7681")
@@ -15,6 +15,7 @@ var (
 	colorBorder      = lipgloss.Color("#30363d")
 	colorArrow       = lipgloss.Color("#e6edf3")
 	colorOrange      = lipgloss.Color("#e8912d")
+	colorGreen       = lipgloss.Color("#3fb950")
 
 	baseStyle = lipgloss.NewStyle().
 			Background(colorBg).

@@ -143,15 +143,16 @@ func (m model) renderFoldersPanel(w, h int) string {
 			}
 		}
 
+		folderIcon := mutedStyle.Render(" ")
 		for i, name := range visible {
-			line := truncate(name, innerW-3)
+			line := truncate(name, innerW-5)
 			if i == effIdx {
 				prefix := arrowStyle.Render("> ")
-				row := prefix + selectedItemStyle.Width(innerW-2).Render(line)
-				sb.WriteString(row)
+				nameStr := lipgloss.NewStyle().Foreground(colorAccentBlue).Render(line)
+				sb.WriteString(prefix + folderIcon + nameStr)
 			} else {
-				row := "  " + normalItemStyle.Width(innerW-2).Render(line)
-				sb.WriteString(row)
+				nameStr := lipgloss.NewStyle().Foreground(colorFg).Render(line)
+				sb.WriteString("   " + folderIcon + nameStr)
 			}
 			sb.WriteString("\n")
 			if i >= innerH-3 {
@@ -203,25 +204,30 @@ func (m model) renderFilesPanel(w, h int) string {
 		sb.WriteString(mutedStyle.Render(count) + "\n\n")
 
 		for i, f := range m.files {
-			icon, iconColor := getFileIcon(f.name)
-			iconStr := lipgloss.NewStyle().Foreground(iconColor).Render(icon)
+			ext, extColor := getFileIcon(f.name)
+			// render extension badge: fixed 4-char wide, colored
+			badge := lipgloss.NewStyle().
+				Foreground(extColor).
+				Width(5).
+				Align(lipgloss.Right).
+				Render(ext)
 			rel := relativeTime(f.modTime)
 			folderName := m.currentFolderName()
 
-			maxNameW := innerW - 6
+			maxNameW := innerW - 8
 			displayName := truncate(f.name, maxNameW)
 
 			if i == m.fileCursor {
 				cursor := fileArrowStyle.Render("> ")
-				nameStr := lipgloss.NewStyle().Foreground(colorFgSelected).Render(displayName)
+				nameStr := lipgloss.NewStyle().Foreground(colorGreen).Render(displayName)
 				metaStr := mutedStyle.Render(folderName + " • " + rel)
-				sb.WriteString(cursor + iconStr + " " + nameStr + "\n")
-				sb.WriteString("   " + metaStr)
+				sb.WriteString(cursor + badge + " " + nameStr + "\n")
+				sb.WriteString("       " + metaStr)
 			} else {
 				nameStr := lipgloss.NewStyle().Foreground(colorFg).Render(displayName)
 				metaStr := mutedStyle.Render(folderName + " • " + rel)
-				sb.WriteString("  " + iconStr + " " + nameStr + "\n")
-				sb.WriteString("   " + metaStr)
+				sb.WriteString("  " + badge + " " + nameStr + "\n")
+				sb.WriteString("       " + metaStr)
 			}
 			sb.WriteString("\n\n")
 
@@ -256,13 +262,15 @@ func (m model) renderPreviewPanel(w, h int) string {
 	innerH := h - 2
 
 	fileName := m.currentFileName()
-	panelLabel := " Preview"
+	var panelTitle string
 	if fileName != "" {
-		icon, iconColor := getFileIcon(fileName)
-		iconStr := lipgloss.NewStyle().Foreground(iconColor).Render(icon)
-		panelLabel = " " + iconStr + " " + fileName
+		ext, extColor := getFileIcon(fileName)
+		badge := lipgloss.NewStyle().Foreground(extColor).Render(ext)
+		name := lipgloss.NewStyle().Foreground(colorFg).Bold(true).Render(fileName)
+		panelTitle = " " + badge + "  " + name
+	} else {
+		panelTitle = panelTitleStyle.Render(" Preview")
 	}
-	panelTitle := panelTitleStyle.Render(panelLabel)
 
 	var contentLines []string
 	contentLines = append(contentLines, panelTitle)
@@ -397,6 +405,24 @@ func (m model) renderEditorReadyModal() string {
 	)
 }
 
+func (m model) renderDeleteConfirmModal() string {
+	ext, extColor := getFileIcon(m.currentFileName())
+	badge := lipgloss.NewStyle().Foreground(extColor).Render(ext)
+	name := lipgloss.NewStyle().Foreground(colorFg).Render(m.currentFileName())
+	fileStr := badge + "  " + name
+
+	title := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7b72")).Bold(true).Render(" Delete File")
+	sep := mutedStyle.Render(strings.Repeat("─", 44))
+	warn := lipgloss.NewStyle().Foreground(colorFg).Render("Are you sure you want to delete:")
+	help := helpStyle.Render("Enter / y: delete    Esc / n: cancel")
+
+	return modalStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left,
+			title, "", warn, fileStr, sep, help,
+		),
+	)
+}
+
 func (m model) renderCopyFileModal() string {
 	title := modalTitleStyle.Render(" Import File")
 	folderName := m.currentFolderName()
@@ -417,7 +443,7 @@ func (m model) renderGitSyncingModal() string {
 }
 
 func (m model) renderStatusBar() string {
-	help := "Tab: panel  ↑↓: nav  Enter: edit  n: new  c: import  r: reload  g: sync  G: git config  q: quit"
+	help := "Tab: panel  ↑↓: nav  Enter: edit  n: new  c: import  d: delete  r: reload  g: sync  G: git config  q: quit"
 	if m.statusMsg != "" {
 		help = m.statusMsg
 	}
@@ -452,6 +478,8 @@ func (m model) renderWithModal() string {
 		modal = m.renderEditorReadyModal()
 	case modalCopyFile:
 		modal = m.renderCopyFileModal()
+	case modalDeleteConfirm:
+		modal = m.renderDeleteConfirmModal()
 	}
 
 	return overlayModal(base, modal, m.width, m.height)

@@ -6,10 +6,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+type clearStatusMsg struct{}
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -75,6 +78,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loadPreview()
 		return m, nil
 
+	case clearStatusMsg:
+		m.statusMsg = ""
+		return m, nil
+
 	case fileCopyResultMsg:
 		if msg.err != nil {
 			m.modal = modalError
@@ -82,11 +89,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else if msg.copied == 0 {
 			m.modal = modalNone
 			m.statusMsg = "No file selected."
+			return m, clearStatusAfter(3 * time.Second)
 		} else {
 			m.modal = modalNone
 			m.loadFiles()
 			m.loadPreview()
 			m.statusMsg = fmt.Sprintf("%d file(s) copied successfully.", msg.copied)
+			return m, clearStatusAfter(3 * time.Second)
 		}
 		return m, nil
 
@@ -210,6 +219,11 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "G":
 		m.openGitConfigModal()
 
+	case "d":
+		if m.activePanel == panelFiles && len(m.files) > 0 {
+			m.modal = modalDeleteConfirm
+		}
+
 	case "c":
 		if m.activePanel == panelFiles && len(m.folders) > 0 {
 			destDir := filepath.Join(m.snippetsDir, m.currentFolderName())
@@ -245,6 +259,12 @@ func doCopyFile(destDir string) tea.Cmd {
 		}
 		return fileCopyResultMsg{copied: len(paths)}
 	}
+}
+
+func clearStatusAfter(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(_ time.Time) tea.Msg {
+		return clearStatusMsg{}
+	})
 }
 
 func doGitSync(snippetsDir string, cfg GitConfig) tea.Cmd {
@@ -322,6 +342,29 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case modalCopyFile:
 		// waiting for file picker result, ignore keys
+		return m, nil
+
+	case modalDeleteConfirm:
+		switch msg.String() {
+		case "enter", "y":
+			path := m.currentFilePath()
+			if path == "" {
+				m.modal = modalNone
+				return m, nil
+			}
+			if err := os.Remove(path); err != nil {
+				m.modal = modalError
+				m.modalError = fmt.Sprintf("Could not delete file: %v", err)
+				return m, nil
+			}
+			m.modal = modalNone
+			m.loadFiles()
+			m.loadPreview()
+			m.statusMsg = "File deleted."
+			return m, clearStatusAfter(3 * time.Second)
+		case "esc", "n", "q":
+			m.modal = modalNone
+		}
 		return m, nil
 
 	case modalEditorReady:
