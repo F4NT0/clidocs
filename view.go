@@ -210,18 +210,18 @@ func (m model) renderFilesPanel(w, h int) string {
 
 			maxNameW := innerW - 6
 			displayName := truncate(f.name, maxNameW)
-			meta := mutedStyle.Render(folderName) + mutedStyle.Render(" • ") + mutedStyle.Render(rel)
 
 			if i == m.fileCursor {
 				cursor := fileArrowStyle.Render("> ")
 				nameStr := lipgloss.NewStyle().Foreground(colorFgSelected).Render(displayName)
-				metaStr := mutedStyle.Render(folderName) + mutedStyle.Render(" • ") + mutedStyle.Render(rel)
-				row := cursor + iconStr + " " + nameStr + "\n" + "   " + metaStr
-				sb.WriteString(selectedItemStyle.Width(innerW).Render(row))
+				metaStr := mutedStyle.Render(folderName + " • " + rel)
+				sb.WriteString(cursor + iconStr + " " + nameStr + "\n")
+				sb.WriteString("   " + metaStr)
 			} else {
-				nameStr := normalItemStyle.Render(displayName)
-				row := "  " + iconStr + " " + nameStr + "\n" + "   " + meta
-				sb.WriteString(normalItemStyle.Width(innerW).Render(row))
+				nameStr := lipgloss.NewStyle().Foreground(colorFg).Render(displayName)
+				metaStr := mutedStyle.Render(folderName + " • " + rel)
+				sb.WriteString("  " + iconStr + " " + nameStr + "\n")
+				sb.WriteString("   " + metaStr)
 			}
 			sb.WriteString("\n\n")
 
@@ -397,6 +397,17 @@ func (m model) renderEditorReadyModal() string {
 	)
 }
 
+func (m model) renderCopyFileModal() string {
+	title := modalTitleStyle.Render(" Import File")
+	folderName := m.currentFolderName()
+	dest := lipgloss.NewStyle().Foreground(colorFgSelected).Render(folderName)
+	info := lipgloss.NewStyle().Foreground(colorFg).Render("Opening file picker...")
+	sub := mutedStyle.Render("Select one or more files to copy into " + dest)
+	return modalStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left, title, "", info, sub),
+	)
+}
+
 func (m model) renderGitSyncingModal() string {
 	title := mutedStyle.Render(" Syncing to GitHub...")
 	spinner := accentStyle.Render("Please wait")
@@ -406,7 +417,7 @@ func (m model) renderGitSyncingModal() string {
 }
 
 func (m model) renderStatusBar() string {
-	help := "Tab: panel  ↑↓: nav  Enter: edit  n: new  r: reload  g: sync  G: git config  q: quit"
+	help := "Tab: panel  ↑↓: nav  Enter: edit  n: new  c: import  r: reload  g: sync  G: git config  q: quit"
 	if m.statusMsg != "" {
 		help = m.statusMsg
 	}
@@ -439,6 +450,8 @@ func (m model) renderWithModal() string {
 		modal = m.renderGitSyncingModal()
 	case modalEditorReady:
 		modal = m.renderEditorReadyModal()
+	case modalCopyFile:
+		modal = m.renderCopyFileModal()
 	}
 
 	return overlayModal(base, modal, m.width, m.height)

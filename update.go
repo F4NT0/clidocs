@@ -75,6 +75,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loadPreview()
 		return m, nil
 
+	case fileCopyResultMsg:
+		if msg.err != nil {
+			m.modal = modalError
+			m.modalError = msg.err.Error()
+		} else if msg.copied == 0 {
+			m.modal = modalNone
+			m.statusMsg = "No file selected."
+		} else {
+			m.modal = modalNone
+			m.loadFiles()
+			m.loadPreview()
+			m.statusMsg = fmt.Sprintf("%d file(s) copied successfully.", msg.copied)
+		}
+		return m, nil
+
 	case gitSyncResultMsg:
 		if msg.err != nil {
 			m.modal = modalError
@@ -195,6 +210,13 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "G":
 		m.openGitConfigModal()
 
+	case "c":
+		if m.activePanel == panelFiles && len(m.folders) > 0 {
+			destDir := filepath.Join(m.snippetsDir, m.currentFolderName())
+			m.modal = modalCopyFile
+			return m, doCopyFile(destDir)
+		}
+
 	case "r":
 		m.loadFiles()
 		m.loadPreview()
@@ -205,6 +227,24 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func doCopyFile(destDir string) tea.Cmd {
+	return func() tea.Msg {
+		paths, err := openFilePicker()
+		if err != nil {
+			return fileCopyResultMsg{err: err}
+		}
+		if len(paths) == 0 {
+			return fileCopyResultMsg{copied: 0}
+		}
+		for _, p := range paths {
+			if err := copyFileToDir(p, destDir); err != nil {
+				return fileCopyResultMsg{err: err}
+			}
+		}
+		return fileCopyResultMsg{copied: len(paths)}
+	}
 }
 
 func doGitSync(snippetsDir string, cfg GitConfig) tea.Cmd {
@@ -278,6 +318,10 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case modalGitSyncing:
 		// waiting for async result, ignore keys
+		return m, nil
+
+	case modalCopyFile:
+		// waiting for file picker result, ignore keys
 		return m, nil
 
 	case modalEditorReady:

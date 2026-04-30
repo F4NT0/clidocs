@@ -33,6 +33,7 @@ const (
 	modalGitSuccess
 	modalGitSyncing
 	modalEditorReady
+	modalCopyFile
 )
 
 type fileEntry struct {
