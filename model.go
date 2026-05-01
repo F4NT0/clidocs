@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,6 +39,7 @@ const (
 	modalMoveFile
 	modalDirInfo
 	modalChangeDirPicker
+	modalFavorites
 )
 
 type fileEntry struct {
@@ -69,7 +71,8 @@ type model struct {
 	modalStep    int // for multi-step modals
 	modalError   string
 
-	statusMsg string
+	statusMsg       string
+	statusIsSuccess bool
 
 	gitCfg       GitConfig
 	gitCfgLoaded bool
@@ -88,11 +91,21 @@ type model struct {
 	searchQuery  string
 
 	// preview panel features
-	previewLineNumbers bool
+	previewLineNumbers  bool
 	previewSearchActive bool
 	previewSearchQuery  string
 	previewSearchHits   []int // line indices (0-based) of matches
-	previewSearchCursor int  // which hit is currently focused
+	previewSearchCursor int   // which hit is currently focused
+
+	// folder favorites
+	favorites       []string // folder names marked as favorite
+	origSnippetsDir string   // original snippetsDir before any change-dir
+	inFavSection    bool     // cursor is in the favorites section
+	favCursor       int      // cursor within favorites section
+
+	// scroll offsets for virtual lists
+	folderScroll int // top visible index in folders list
+	fileScroll   int // top visible index in files list
 }
 
 func newModel(dir string) model {
@@ -119,11 +132,82 @@ func newModel(dir string) model {
 		modalInput2:  ti2,
 		modalInput3:  ti3,
 		activePanel:  panelFolders,
-		gitCfg:       gitCfg,
-		gitCfgLoaded: gitLoaded,
+		gitCfg:          gitCfg,
+		gitCfgLoaded:    gitLoaded,
+		origSnippetsDir: dir,
 	}
 	m.loadFolders()
+	m.loadFavorites()
 	return m
+}
+
+// clampScroll adjusts scroll so that cursor stays within [scroll, scroll+visible).
+func clampScroll(cursor, scroll, visible int) int {
+	if cursor < scroll {
+		return cursor
+	}
+	if cursor >= scroll+visible {
+		return cursor - visible + 1
+	}
+	return scroll
+}
+
+const favoritesFile = ".clidocs_favorites.json"
+
+func (m *model) loadFavorites() {
+	path := filepath.Join(m.snippetsDir, favoritesFile)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		m.favorites = nil
+		return
+	}
+	var favs []string
+	if err := json.Unmarshal(data, &favs); err != nil {
+		m.favorites = nil
+		return
+	}
+	m.favorites = favs
+}
+
+func (m *model) saveFavorites() {
+	path := filepath.Join(m.snippetsDir, favoritesFile)
+	data, _ := json.MarshalIndent(m.favorites, "", "  ")
+	_ = os.WriteFile(path, data, 0644)
+}
+
+func (m *model) isFavorite(name string) bool {
+	for _, f := range m.favorites {
+		if f == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *model) toggleFavorite(name string) {
+	for i, f := range m.favorites {
+		if f == name {
+			m.favorites = append(m.favorites[:i], m.favorites[i+1:]...)
+			m.saveFavorites()
+			return
+		}
+	}
+	m.favorites = append(m.favorites, name)
+	m.saveFavorites()
+}
+
+// currentFolderInContext returns the folder name the cursor is currently on.
+func (m model) currentFolderInContext() string {
+	if false { // inFavSection removed; favorites navigate via modal then set folderCursor
+		if m.favCursor >= 0 && m.favCursor < len(m.favorites) {
+			return m.favorites[m.favCursor]
+		}
+		return ""
+	}
+	if m.folderCursor < len(m.folders) {
+		return m.folders[m.folderCursor]
+	}
+	return ""
 }
 
 func (m *model) loadFolders() {
@@ -145,10 +229,11 @@ func (m *model) loadFolders() {
 
 func (m *model) loadFiles() {
 	m.files = []fileEntry{}
-	if len(m.folders) == 0 {
+	folderName := m.currentFolderName()
+	if folderName == "" {
 		return
 	}
-	dir := filepath.Join(m.snippetsDir, m.folders[m.folderCursor])
+	dir := filepath.Join(m.snippetsDir, folderName)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
@@ -187,14 +272,15 @@ func (m *model) loadPreview() {
 	m.previewHighlight = ""
 	m.previewScroll = 0
 	m.previewIsImage = false
-	if len(m.folders) == 0 {
+	folderName := m.currentFolderName()
+	if folderName == "" {
 		return
 	}
 	f, ok := m.resolvedFile()
 	if !ok {
 		return
 	}
-	path := filepath.Join(m.snippetsDir, m.folders[m.folderCursor], f.name)
+	path := filepath.Join(m.snippetsDir, folderName, f.name)
 
 	if isImageFile(f.name) {
 		m.previewIsImage = true
@@ -298,10 +384,7 @@ func computePreviewSearchHits(content, query string) []int {
 }
 
 func (m model) currentFolderName() string {
-	if len(m.folders) == 0 {
-		return ""
-	}
-	return m.folders[m.folderCursor]
+	return m.currentFolderInContext()
 }
 
 func (m model) currentFileName() string {

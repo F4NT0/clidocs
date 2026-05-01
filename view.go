@@ -109,75 +109,78 @@ func (m model) renderFoldersPanel(w, h int) string {
 	isActive := m.activePanel == panelFolders
 
 	innerW := w - 2
-	innerH := h - 2
+	innerH := h - 2 // total lines budget inside the panel border
 
-	// Filter out .git and hidden git dirs
-	visible := make([]string, 0, len(m.folders))
-	for _, f := range m.folders {
-		if f == ".git" || f == ".gitignore" {
-			continue
-		}
-		visible = append(visible, f)
+	folderIcon := "󰉋 "
+	starIcon := lipgloss.NewStyle().Foreground(colorOrange).Render("★")
+
+	// main section: title(1) + divider(1) + folder rows
+	mainListH := innerH - 2
+	if mainListH < 1 {
+		mainListH = 1
 	}
 
-	panelTitle := panelTitleStyle.Render(" Folders")
-	var sb strings.Builder
-	sb.WriteString(panelTitle + "\n")
-	sb.WriteString(mutedStyle.Render(strings.Repeat("─", innerW)) + "\n")
+	// collect exactly innerH lines into `lines []string`
+	lines := make([]string, 0, innerH)
 
-	if len(visible) == 0 {
-		sb.WriteString(mutedStyle.Render("No folders yet"))
-		sb.WriteString("\n")
-		sb.WriteString(mutedStyle.Render("Press n to create"))
+	// ── Title ─────────────────────────────────────────────────────────
+	titleText := " Folders"
+	if m.snippetsDir != m.origSnippetsDir {
+		titleText = " Folders " + mutedStyle.Render("H:home")
+	}
+	lines = append(lines, panelTitleStyle.Render(titleText))
+	lines = append(lines, mutedStyle.Render(strings.Repeat("─", innerW-1)))
+
+	// ── Main folders list (virtual scroll, no scrollbar) ─────────────
+	scroll := clampScroll(m.folderCursor, m.folderScroll, mainListH)
+
+	if len(m.folders) == 0 {
+		lines = append(lines, mutedStyle.Render("No folders yet"))
+		lines = append(lines, mutedStyle.Render("Press n to create"))
 	} else {
-		// find effective cursor in visible list
-		effIdx := 0
-		rawName := ""
-		if m.folderCursor < len(m.folders) {
-			rawName = m.folders[m.folderCursor]
-		}
-		for vi, vn := range visible {
-			if vn == rawName {
-				effIdx = vi
-				break
+		for row := 0; row < mainListH; row++ {
+			idx := scroll + row
+			if idx >= len(m.folders) {
+				lines = append(lines, "")
+				continue
 			}
-		}
-
-		folderIcon := mutedStyle.Render(" ")
-		for i, name := range visible {
-			line := truncate(name, innerW-5)
-			if i == effIdx {
-				prefix := arrowStyle.Render("> ")
-				nameStr := lipgloss.NewStyle().Foreground(colorAccentBlue).Render(line)
-				sb.WriteString(prefix + folderIcon + nameStr)
+			name := m.folders[idx]
+			label := truncate(name, innerW-6)
+			isFav := m.isFavorite(name)
+			favMark := ""
+			if isFav {
+				favMark = " " + starIcon
+			}
+			isSelected := !m.inFavSection && idx == m.folderCursor
+			var rowStr string
+			if isSelected {
+				rowStr = arrowStyle.Render("> ") +
+					lipgloss.NewStyle().Foreground(colorAccentBlue).Render(folderIcon) +
+					lipgloss.NewStyle().Foreground(colorAccentBlue).Render(label) +
+					favMark
 			} else {
-				nameStr := lipgloss.NewStyle().Foreground(colorFg).Render(line)
-				sb.WriteString("   " + folderIcon + nameStr)
+				rowStr = "   " +
+					mutedStyle.Render(folderIcon) +
+					lipgloss.NewStyle().Foreground(colorFg).Render(label) +
+					favMark
 			}
-			sb.WriteString("\n")
-			if i >= innerH-3 {
-				break
-			}
+			lines = append(lines, rowStr)
 		}
 	}
 
-	content := sb.String()
-	lines := strings.Count(content, "\n")
-	for lines < innerH {
-		content += "\n"
-		lines++
+	// ── Pad to exact innerH ───────────────────────────────────────────
+	for len(lines) < innerH {
+		lines = append(lines, "")
 	}
+	content := strings.Join(lines[:innerH], "\n")
 
 	style := panelStyle
 	if isActive {
 		style = activePanelStyle
 	}
-
-	return style.
-		Width(w).
-		Height(h).
-		Render(content)
+	return style.Width(w).Height(h).Render(content)
 }
+
 
 func (m model) renderFilesPanel(w, h int) string {
 	isActive := m.activePanel == panelFiles
@@ -189,10 +192,10 @@ func (m model) renderFilesPanel(w, h int) string {
 
 	// ── title + search bar ───────────────────────────────────────────────────
 	if m.searchActive {
-		cursor := lipgloss.NewStyle().Background(colorAccentBlue).Foreground(colorBg).Render(" ")
+		cur := lipgloss.NewStyle().Background(colorAccentBlue).Foreground(colorBg).Render(" ")
 		searchBar := lipgloss.NewStyle().Foreground(colorAccentBlue).Render(" / ") +
 			lipgloss.NewStyle().Foreground(colorFg).Render(m.searchQuery) +
-			cursor
+			cur
 		sb.WriteString(searchBar + "\n")
 	} else {
 		sb.WriteString(panelTitleStyle.Render(" Snippets") + "\n")
@@ -230,7 +233,21 @@ func (m model) renderFilesPanel(w, h int) string {
 			cur = max(0, len(filtered)-1)
 		}
 
-		for i, f := range filtered {
+		// Each file entry uses 3 lines: name, meta, blank.
+		// Available lines after header (title+div+count+blank = 4 lines used above).
+		headerUsed := 4
+		availLines := innerH - headerUsed
+		itemH := 3 // lines per file entry
+		visibleItems := max(1, availLines/itemH)
+
+		fileScroll := clampScroll(cur, m.fileScroll, visibleItems)
+
+		maxNameW := innerW - 8 // indent(2) + badge(5) + space(1)
+		metaIndent := "       " // 7 chars
+		maxMetaW := innerW - len(metaIndent)
+
+		for i := fileScroll; i < len(filtered) && i < fileScroll+visibleItems; i++ {
+			f := filtered[i]
 			ext, extColor := getFileIcon(f.name)
 			badge := lipgloss.NewStyle().
 				Foreground(extColor).
@@ -238,27 +255,19 @@ func (m model) renderFilesPanel(w, h int) string {
 				Align(lipgloss.Right).
 				Render(ext)
 			rel := relativeTime(f.modTime)
-			maxNameW := innerW - 8
 			displayName := truncate(f.name, maxNameW)
+			metaText := truncate(folderName+" • "+rel, maxMetaW)
 
 			if i == cur {
-				cursor := fileArrowStyle.Render("> ")
+				arrow := fileArrowStyle.Render("> ")
 				nameStr := lipgloss.NewStyle().Foreground(colorGreen).Render(displayName)
-				metaStr := mutedStyle.Render(folderName + " • " + rel)
-				sb.WriteString(cursor + badge + " " + nameStr + "\n")
-				sb.WriteString("       " + metaStr)
+				sb.WriteString(arrow + badge + " " + nameStr + "\n")
 			} else {
 				nameStr := lipgloss.NewStyle().Foreground(colorFg).Render(displayName)
-				metaStr := mutedStyle.Render(folderName + " • " + rel)
 				sb.WriteString("  " + badge + " " + nameStr + "\n")
-				sb.WriteString("       " + metaStr)
 			}
-			sb.WriteString("\n\n")
-
-			usedLines := 4 + (i+1)*3
-			if usedLines >= innerH {
-				break
-			}
+			sb.WriteString(metaIndent + mutedStyle.Render(metaText) + "\n")
+			sb.WriteString("\n")
 		}
 	}
 
@@ -593,6 +602,15 @@ func (m model) renderGitSyncingModal() string {
 func (m model) renderStatusBar() string {
 	var help string
 	if m.statusMsg != "" {
+		if m.statusIsSuccess {
+			return lipgloss.NewStyle().
+				Background(colorBg).
+				Foreground(colorGreen).
+				Bold(true).
+				Width(m.width).
+				Padding(0, 1).
+				Render(m.statusMsg)
+		}
 		help = m.statusMsg
 	} else if m.searchActive {
 		help = "Typing: filter files  ↑↓: navigate results  Enter: select  Esc: cancel search"
@@ -606,11 +624,11 @@ func (m model) renderStatusBar() string {
 	} else {
 		switch m.activePanel {
 		case panelFolders:
-			help = "↑↓: folders  Enter/→: open  n: new folder  o: dir info  g: sync  G: git config  Tab: next panel  q: quit"
+			help = "↑↓: folders  Enter: open  n: new  f: favorite  F: go to favorites  H: home dir  o: dir info  g: sync  Tab: next panel  q: quit"
 		case panelFiles:
 			help = "↑↓: files  Enter: edit  /: search  n: new  m: move  c: import  d: delete  r: reload  g: sync  G: git config  Tab: next panel"
 		case panelPreview:
-			help = "↑↓: scroll  /: find word  L: line numbers  g: sync  G: git config  Tab: next panel  q: quit"
+			help = "↑↓: scroll  /: find word  L: line numbers  c: copy content  g: sync  G: git config  Tab: next panel  q: quit"
 		}
 	}
 	return lipgloss.NewStyle().
@@ -652,9 +670,40 @@ func (m model) renderWithModal() string {
 		modal = m.renderDirInfoModal()
 	case modalChangeDirPicker:
 		modal = m.renderChangeDirPickerModal()
+	case modalFavorites:
+		modal = m.renderFavoritesModal()
 	}
 
 	return overlayModal(base, modal, m.width, m.height)
+}
+
+func (m model) renderFavoritesModal() string {
+	title := lipgloss.NewStyle().Foreground(colorOrange).Bold(true).Render(" ★ Favorites")
+	sep := mutedStyle.Render(strings.Repeat("─", 44))
+
+	var rows []string
+	rows = append(rows, title, sep)
+
+	if len(m.favorites) == 0 {
+		rows = append(rows, mutedStyle.Render("No favorites yet"))
+	} else {
+		for i, name := range m.favorites {
+			label := truncate(name, 38)
+			if i == m.favCursor {
+				rows = append(rows,
+					arrowStyle.Render("> ")+
+						lipgloss.NewStyle().Foreground(colorOrange).Render("󰉋 ")+
+						lipgloss.NewStyle().Foreground(colorOrange).Bold(true).Render(label))
+			} else {
+				rows = append(rows,
+					"   "+mutedStyle.Render("󰉋 ")+
+						lipgloss.NewStyle().Foreground(colorFg).Render(label))
+			}
+		}
+	}
+
+	rows = append(rows, sep, helpStyle.Render("↑↓: navigate   Enter: go to folder   f: unfavorite   Esc: close"))
+	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
 }
 
 func (m model) renderNewFolderModal() string {

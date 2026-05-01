@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -90,6 +91,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case clearStatusMsg:
 		m.statusMsg = ""
+		m.statusIsSuccess = false
 		return m, nil
 
 	case fileCopyResultMsg:
@@ -123,12 +125,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.snippetsDir = msg.dir
 		m.folderCursor = 0
 		m.fileCursor = 0
+		m.inFavSection = false
+		m.favCursor = 0
 		if err := os.MkdirAll(msg.dir, 0755); err != nil {
 			m.modal = modalError
 			m.modalError = fmt.Sprintf("Cannot use directory: %v", err)
 			return m, nil
 		}
 		m.loadFolders()
+		m.loadFavorites()
 		m.loadFiles()
 		m.loadPreview()
 		m.statusMsg = "Snippets directory changed to: " + msg.dir
@@ -202,13 +207,16 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case panelFolders:
 			if m.folderCursor > 0 {
 				m.folderCursor--
+				m.folderScroll = clampScroll(m.folderCursor, m.folderScroll, 10)
 				m.fileCursor = 0
+				m.fileScroll = 0
 				m.loadFiles()
 				m.loadPreview()
 			}
 		case panelFiles:
 			if m.fileCursor > 0 {
 				m.fileCursor--
+				m.fileScroll = clampScroll(m.fileCursor, m.fileScroll, 10)
 				m.loadPreview()
 			}
 		case panelPreview:
@@ -222,13 +230,16 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case panelFolders:
 			if m.folderCursor < len(m.folders)-1 {
 				m.folderCursor++
+				m.folderScroll = clampScroll(m.folderCursor, m.folderScroll, 10)
 				m.fileCursor = 0
+				m.fileScroll = 0
 				m.loadFiles()
 				m.loadPreview()
 			}
 		case panelFiles:
 			if m.fileCursor < len(m.files)-1 {
 				m.fileCursor++
+				m.fileScroll = clampScroll(m.fileCursor, m.fileScroll, 10)
 				m.loadPreview()
 			}
 		case panelPreview:
@@ -238,8 +249,10 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		switch m.activePanel {
 		case panelFolders:
-			if len(m.folders) > 0 {
+			folderName := m.currentFolderName()
+			if folderName != "" {
 				m.activePanel = panelFiles
+				m.fileCursor = 0
 				m.loadFiles()
 				m.loadPreview()
 			}
@@ -258,8 +271,57 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.openModal(modalNewFile)
 		}
 
+	case "f":
+		// toggle favorite on the currently selected folder
+		if m.activePanel == panelFolders {
+			name := m.currentFolderName()
+			if name != "" {
+				m.toggleFavorite(name)
+				if m.inFavSection && !m.isFavorite(name) {
+					// cursor was on a just-removed favorite — reset to main section
+					m.inFavSection = false
+					if m.favCursor >= len(m.favorites) {
+						m.favCursor = max(0, len(m.favorites)-1)
+					}
+				}
+				m.statusMsg = "★ " + name
+				if m.isFavorite(name) {
+					m.statusMsg += " added to favorites"
+				} else {
+					m.statusMsg += " removed from favorites"
+				}
+				m.statusIsSuccess = true
+				return m, clearStatusAfter(2 * time.Second)
+			}
+		}
+
+	case "F":
+		// open favorites modal
+		if m.activePanel == panelFolders && len(m.favorites) > 0 {
+			m.favCursor = 0
+			m.modal = modalFavorites
+		}
+
+	case "H":
+		// return to original snippets directory
+		if m.activePanel == panelFolders && m.snippetsDir != m.origSnippetsDir {
+			m.snippetsDir = m.origSnippetsDir
+			m.folderCursor = 0
+			m.fileCursor = 0
+			m.inFavSection = false
+			m.favCursor = 0
+			m.loadFolders()
+			m.loadFavorites()
+			m.loadFiles()
+			m.loadPreview()
+			m.statusMsg = "Returned to snippets directory"
+			m.statusIsSuccess = true
+			return m, clearStatusAfter(3 * time.Second)
+		}
+
 	case "s":
 		m.activePanel = panelFolders
+		m.inFavSection = false
 
 	case "g":
 		if !m.gitCfgLoaded {
@@ -290,10 +352,24 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.modal = modalDirInfo
 
 	case "c":
-		if m.activePanel == panelFiles && len(m.folders) > 0 {
-			destDir := filepath.Join(m.snippetsDir, m.currentFolderName())
-			m.modal = modalCopyFile
-			return m, doCopyFile(destDir)
+		switch m.activePanel {
+		case panelFiles:
+			if len(m.folders) > 0 {
+				destDir := filepath.Join(m.snippetsDir, m.currentFolderName())
+				m.modal = modalCopyFile
+				return m, doCopyFile(destDir)
+			}
+		case panelPreview:
+			if m.previewContent != "" {
+				if err := clipboard.WriteAll(m.previewContent); err != nil {
+					m.statusMsg = "Failed to copy: " + err.Error()
+					m.statusIsSuccess = false
+				} else {
+					m.statusMsg = "✓ Copied to clipboard!"
+					m.statusIsSuccess = true
+				}
+				return m, clearStatusAfter(3 * time.Second)
+			}
 		}
 
 	case "L":
@@ -646,6 +722,50 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		default:
 			m.modalInput, cmd = m.modalInput.Update(msg)
 		}
+
+	case modalFavorites:
+		switch msg.String() {
+		case "esc", "q", "F":
+			m.modal = modalNone
+		case "up", "k":
+			if m.favCursor > 0 {
+				m.favCursor--
+			}
+		case "down", "j":
+			if m.favCursor < len(m.favorites)-1 {
+				m.favCursor++
+			}
+		case "enter":
+			if m.favCursor < len(m.favorites) {
+				name := m.favorites[m.favCursor]
+				// find folder index in main list
+				for i, f := range m.folders {
+					if f == name {
+						m.folderCursor = i
+						m.folderScroll = clampScroll(i, m.folderScroll, 10)
+						break
+					}
+				}
+				m.inFavSection = false
+				m.fileCursor = 0
+				m.fileScroll = 0
+				m.loadFiles()
+				m.loadPreview()
+			}
+			m.modal = modalNone
+		case "f":
+			// unfavorite from modal
+			if m.favCursor < len(m.favorites) {
+				name := m.favorites[m.favCursor]
+				m.toggleFavorite(name)
+				if m.favCursor >= len(m.favorites) {
+					m.favCursor = max(0, len(m.favorites)-1)
+				}
+				if len(m.favorites) == 0 {
+					m.modal = modalNone
+				}
+			}
+		}
 	}
 
 	return m, cmd
@@ -744,11 +864,13 @@ func (m model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.searchQuery = m.searchQuery[:len(m.searchQuery)-1]
 		}
 		m.fileCursor = 0
+		m.fileScroll = 0
 		m.loadPreview()
 
 	case "up", "k":
 		if m.fileCursor > 0 {
 			m.fileCursor--
+			m.fileScroll = clampScroll(m.fileCursor, m.fileScroll, 10)
 			m.loadPreview()
 		}
 
@@ -756,6 +878,7 @@ func (m model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		filtered := m.filteredFiles()
 		if m.fileCursor < len(filtered)-1 {
 			m.fileCursor++
+			m.fileScroll = clampScroll(m.fileCursor, m.fileScroll, 10)
 			m.loadPreview()
 		}
 
@@ -781,6 +904,7 @@ func (m model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(r) == 1 && r[0] >= 0x20 {
 			m.searchQuery += r
 			m.fileCursor = 0
+			m.fileScroll = 0
 			m.loadPreview()
 		}
 	}

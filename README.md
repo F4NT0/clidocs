@@ -27,6 +27,8 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 - [Interface](#interface)
 - [Navigation](#navigation)
 - [Snippets Management](#snippets-management)
+- [Folder Favorites](#folder-favorites)
+- [Copy to Clipboard](#copy-to-clipboard)
 - [Neovim Integration](#neovim-integration)
 - [File Import](#file-import)
 - [GitHub Sync](#github-sync)
@@ -47,7 +49,11 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 - **Three-panel layout** — Folders / Snippets / Preview, fully keyboard-driven
 - **Syntax highlighting** powered by [Chroma](https://github.com/alecthomas/chroma) with the GitHub Dark theme
 - **Language badges** — each file shows its extension label in the official language color (e.g. `py` in Python blue, `cs` in C# purple)
-- **Folder icons** — selected folder highlighted in blue
+- **Folder icons** — Nerd Font `` icon beside every folder name; selected folder highlighted in blue
+- **Virtual scroll** — Folders and Snippets panels scroll smoothly with no visual scrollbar; cursor always stays visible
+- **Folder favorites** — press `f` to favorite/unfavorite any folder; press `F` to open the Favorites modal and jump directly to a saved folder
+- **Return to home directory** — press `H` in the Folders panel to return to the original snippets directory after browsing another one
+- **Copy preview to clipboard** — press `c` in the Preview panel to copy the entire file content; a green success message confirms
 - **Inline file search** — press `/` in Snippets to filter files by name in real-time; supports glob patterns (`*.go`)
 - **Preview word search** — press `/` in Preview to search for any word; press `Enter` to find all matches, `n`/`N` to cycle
 - **Line numbers** — toggle line numbers in Preview with `L`; matched lines are highlighted
@@ -130,10 +136,13 @@ After that, open any PowerShell window and type `clidocs`.
 
 | Key | Action |
 |---|---|
-| `↑` / `k` | Previous folder |
+| `↑` / `k` | Previous folder (virtual scroll — list slides automatically) |
 | `↓` / `j` | Next folder |
-| `Enter` / `→` | Open folder, move focus to Snippets |
+| `Enter` | Open folder, move focus to Snippets |
 | `n` | Create new folder |
+| `f` | Favorite / unfavorite the selected folder |
+| `F` | Open **Favorites modal** — navigate and jump to a favorite folder |
+| `H` | Return to original snippets directory (shown when directory was changed) |
 | `o` | Snippets directory info |
 | `Tab` / `→` | Next panel |
 | `q` / `Ctrl+C` | Quit |
@@ -170,6 +179,7 @@ After that, open any PowerShell window and type `clidocs`.
 | `↓` / `j` | Scroll down |
 | `L` | Toggle line numbers |
 | `/` | **Word search** in current file |
+| `c` | **Copy** entire file content to clipboard |
 | `Tab` | Next panel |
 | `q` / `Ctrl+C` | Quit |
 
@@ -194,6 +204,8 @@ After that, open any PowerShell window and type `clidocs`.
 | `o` | Snippets directory info |
 | `r` | Reload |
 | `q` / `Ctrl+C` | Quit |
+
+> **Note:** `f`, `F`, `H` only act when the **Folders** panel is active. `c` (copy to clipboard) only acts in **Preview**; `c` in Snippets opens the file importer.
 
 ---
 
@@ -283,6 +295,65 @@ When line numbers are enabled, matched lines show their number in orange (curren
 
 <div align="center">
 <img src="images/move-file.png" alt="Move file" width="750">
+</div>
+
+---
+
+## Folder Favorites
+
+Favorites let you bookmark frequently-used folders and jump to them instantly.
+
+### Marking a favorite
+
+1. Focus the **Folders** panel and select any folder
+2. Press `f` — a green status message confirms *"★ FolderName added to favorites"*
+3. The folder name gets a `★` indicator in the list
+4. Press `f` again on the same folder to unfavorite it
+
+> Favorites are saved automatically to `.clidocs_favorites.json` inside the snippets directory and persist across sessions.
+
+<div align="center">
+
+<!-- TODO: add screenshot -->
+<!-- <img src="images/folder-favorites.png" alt="Folder favorites" width="750"> -->
+
+</div>
+
+### Navigating favorites
+
+1. Press `F` (uppercase) in the **Folders** panel to open the **Favorites modal**
+2. Use `↑`/`↓` to navigate between saved folders
+3. Press `Enter` to jump directly to that folder — the modal closes and the cursor lands on the selected folder
+4. Press `f` inside the modal to unfavorite the selected entry
+5. Press `Esc` or `F` to close without navigating
+
+<div align="center">
+
+<!-- TODO: add screenshot -->
+<!-- <img src="images/favorites-modal.png" alt="Favorites modal" width="750"> -->
+
+</div>
+
+### Returning to the home directory
+
+If you changed the snippets directory via `o → s`, the Folders panel title shows **`H:home`**.
+Press `H` to instantly return to the original snippets directory.
+
+---
+
+## Copy to Clipboard
+
+While the **Preview** panel is active, press `c` to copy the entire content of the displayed file to the system clipboard.
+
+- A **green status message** appears at the bottom confirming the copy
+- The message disappears automatically after a few seconds
+- You can then paste the content anywhere with `Ctrl+V`
+
+<div align="center">
+
+<!-- TODO: add screenshot -->
+<!-- <img src="images/copy-to-clipboard.png" alt="Copy to clipboard" width="750"> -->
+
 </div>
 
 ---
