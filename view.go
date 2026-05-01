@@ -606,11 +606,11 @@ func (m model) renderStatusBar() string {
 	} else {
 		switch m.activePanel {
 		case panelFolders:
-			help = "↑↓: folders  Enter/→: open  n: new folder  o: dir info  Tab/→: next panel  q: quit"
+			help = "↑↓: folders  Enter/→: open  n: new folder  o: dir info  g: sync  G: git config  Tab: next panel  q: quit"
 		case panelFiles:
-			help = "↑↓: files  Enter: edit  /: search  n: new  m: move  c: import  d: delete  r: reload  Tab: next panel"
+			help = "↑↓: files  Enter: edit  /: search  n: new  m: move  c: import  d: delete  r: reload  g: sync  G: git config  Tab: next panel"
 		case panelPreview:
-			help = "↑↓: scroll  /: find word  L: line numbers  Tab: next panel  q: quit"
+			help = "↑↓: scroll  /: find word  L: line numbers  g: sync  G: git config  Tab: next panel  q: quit"
 		}
 	}
 	return lipgloss.NewStyle().

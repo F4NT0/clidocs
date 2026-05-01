@@ -133,7 +133,7 @@ func (m *model) loadFolders() {
 		return
 	}
 	for _, e := range entries {
-		if e.IsDir() {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
 			m.folders = append(m.folders, e.Name())
 		}
 	}
@@ -168,15 +168,32 @@ func (m *model) loadFiles() {
 	}
 }
 
+// resolvedFile returns the currently selected file entry, respecting the
+// active search filter (fileCursor indexes into filteredFiles when search is on).
+func (m model) resolvedFile() (fileEntry, bool) {
+	list := m.filteredFiles()
+	if len(list) == 0 {
+		return fileEntry{}, false
+	}
+	idx := m.fileCursor
+	if idx < 0 || idx >= len(list) {
+		idx = 0
+	}
+	return list[idx], true
+}
+
 func (m *model) loadPreview() {
 	m.previewContent = ""
 	m.previewHighlight = ""
 	m.previewScroll = 0
 	m.previewIsImage = false
-	if len(m.files) == 0 || len(m.folders) == 0 {
+	if len(m.folders) == 0 {
 		return
 	}
-	f := m.files[m.fileCursor]
+	f, ok := m.resolvedFile()
+	if !ok {
+		return
+	}
 	path := filepath.Join(m.snippetsDir, m.folders[m.folderCursor], f.name)
 
 	if isImageFile(f.name) {
@@ -288,17 +305,22 @@ func (m model) currentFolderName() string {
 }
 
 func (m model) currentFileName() string {
-	if len(m.files) == 0 {
+	f, ok := m.resolvedFile()
+	if !ok {
 		return ""
 	}
-	return m.files[m.fileCursor].name
+	return f.name
 }
 
 func (m model) currentFilePath() string {
-	if len(m.folders) == 0 || len(m.files) == 0 {
+	if len(m.folders) == 0 {
 		return ""
 	}
-	return filepath.Join(m.snippetsDir, m.folders[m.folderCursor], m.files[m.fileCursor].name)
+	f, ok := m.resolvedFile()
+	if !ok {
+		return ""
+	}
+	return filepath.Join(m.snippetsDir, m.folders[m.folderCursor], f.name)
 }
 
 func relativeTime(t time.Time) string {

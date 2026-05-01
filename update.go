@@ -305,6 +305,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.searchActive = true
 			m.searchQuery = ""
 			m.fileCursor = 0
+			m.loadPreview()
 		case panelPreview:
 			if m.previewContent != "" {
 				m.previewSearchActive = true
@@ -721,11 +722,22 @@ func (m model) handleGitModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // handleSearchKey handles keypresses while inline search is active in the files panel.
 func (m model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "ctrl+c":
+	case "esc":
+		// restore real fileCursor to the currently previewed file before exiting
+		if f, ok := m.resolvedFile(); ok {
+			for i, rf := range m.files {
+				if rf.name == f.name {
+					m.fileCursor = i
+					break
+				}
+			}
+		}
 		m.searchActive = false
 		m.searchQuery = ""
-		m.fileCursor = 0
 		m.loadPreview()
+
+	case "ctrl+c":
+		return m, tea.Quit
 
 	case "backspace", "ctrl+h":
 		if len(m.searchQuery) > 0 {
@@ -748,7 +760,7 @@ func (m model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "enter":
-		// confirm selection: map fileCursor back to real file, exit search
+		// map fileCursor back to real index in m.files, exit search
 		filtered := m.filteredFiles()
 		if len(filtered) > 0 && m.fileCursor < len(filtered) {
 			selected := filtered[m.fileCursor]
@@ -764,7 +776,7 @@ func (m model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.loadPreview()
 
 	default:
-		// append printable characters to query
+		// append printable characters to query; reset cursor to top of results
 		r := msg.String()
 		if len(r) == 1 && r[0] >= 0x20 {
 			m.searchQuery += r

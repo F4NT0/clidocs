@@ -1,6 +1,6 @@
 <div align="center">
 
-# clidocs
+<img src="images/banner.png" alt="clidocs" width="480">
 
 **A terminal-native snippet manager built with Go**
 
@@ -110,25 +110,9 @@ After that, open any PowerShell window and type `clidocs`.
 
 ## Interface
 
-```
-┌─ clidocs ──[Folders]──[Snippets]──[Preview]──────────────────────────┐
-├──────────────┬─────────────────┬─────────────────────────────────────┤
-│  Folders     │  Snippets       │  md  Comments.md                    │
-│  ────────    │  ─────────────  │  ──────────────────────────────     │
-│   Go        │  2 snippets     │                                     │
-│ >  Neovim   │                 │  # Comment multiple lines            │
-│   Python    │ > md Comments   │                                     │
-│             │      Neovim•3h  │  1. Use Ctrl+V to select...         │
-│             │                 │                                     │
-│             │   cs E.cs       │                                     │
-│             │      Neovim•now │                                     │
-├─────────────┴─────────────────┴─────────────────────────────────────┤
-│ Tab: panel  ↑↓: nav  Enter: edit  n: new  c: import  g: sync  q: quit│
-└──────────────────────────────────────────────────────────────────────┘
-```
-
-<!-- Interface screenshot placeholder -->
-<!-- ![Interface](docs/interface.png) -->
+<div align="center">
+<img src="images/visualization.png" alt="clidocs interface" width="900">
+</div>
 
 ### Panel descriptions
 
@@ -227,6 +211,10 @@ After that, open any PowerShell window and type `clidocs`.
 5. Press `Enter` to confirm selection (stays on that file, no editor opens)
 6. Press `Esc` to cancel and restore the full list
 
+<div align="center">
+<img src="images/search-filter-snippets.png" alt="Inline file search" width="750">
+</div>
+
 ### Preview Word Search
 
 1. Focus the **Preview** panel
@@ -239,17 +227,28 @@ After that, open any PowerShell window and type `clidocs`.
 6. The view auto-scrolls to keep the current hit visible
 7. Press `Esc` to close the search bar
 
+<div align="center">
+<img src="images/search-word-visualization.png" alt="Preview word search" width="750">
+</div>
+
 ### Line Numbers
 
 Press `L` while the Preview panel is active to toggle line numbers on/off.
 When line numbers are enabled, matched lines show their number in orange (current) or green (other hits).
 
+<div align="center">
+<img src="images/Show_Line_Numbers.png" alt="Line numbers" width="750">
+</div>
 
 ### Create a folder
 
 1. Focus the **Folders** panel
 2. Press `n`
 3. Type the folder name → `Enter` to confirm, `Esc` to cancel
+
+<div align="center">
+<img src="images/create-new-folder.png" alt="Create folder" width="750">
+</div>
 
 ### Create a file
 
@@ -258,8 +257,9 @@ When line numbers are enabled, matched lines show their number in orange (curren
 3. **Step 1** — Enter the file name (without extension) → `Enter` or `Tab`
 4. **Step 2** — Enter the extension (e.g. `go`, `py`, `md`) → `Enter` to create and open
 
-<!-- Modal screenshot placeholder -->
-<!-- ![New file modal](docs/modal-new-file.png) -->
+<div align="center">
+<img src="images/create-new-file.png" alt="Create file" width="750">
+</div>
 
 ### Delete a file
 
@@ -270,8 +270,9 @@ When line numbers are enabled, matched lines show their number in orange (curren
 
 > **Warning:** Deletion is permanent — the file is removed from disk immediately.
 
-<!-- Delete modal screenshot placeholder -->
-<!-- ![Delete modal](docs/modal-delete.png) -->
+<div align="center">
+<img src="images/delete-file.png" alt="Delete file" width="750">
+</div>
 
 ### Move a file to another folder
 
@@ -280,8 +281,9 @@ When line numbers are enabled, matched lines show their number in orange (curren
 3. A modal opens listing all other folders — navigate with `↑↓`
 4. Press `Enter` to move the file; the list reloads automatically
 
-<!-- Move modal screenshot placeholder -->
-<!-- ![Move modal](docs/modal-move.png) -->
+<div align="center">
+<img src="images/move-file.png" alt="Move file" width="750">
+</div>
 
 ---
 
@@ -305,8 +307,9 @@ Enter: open in Explorer   s: change directory   Esc: close
 
 > Changing the directory takes effect immediately — clidocs reloads with the new root. The original default directory (`%USERPROFILE%\clidocs_snippets`) is not deleted.
 
-<!-- Dir info modal screenshot placeholder -->
-<!-- ![Dir info modal](docs/modal-dir-info.png) -->
+<div align="center">
+<img src="images/snippet-directory.png" alt="Snippets directory" width="750">
+</div>
 
 ---
 
@@ -333,8 +336,9 @@ Enter: open editor  Esc: cancel
 
 > **Fallback:** If Windows Terminal (`wt`) is not available, Neovim takes over the current terminal and returns to clidocs on exit.
 
-<!-- Editor modal screenshot placeholder -->
-<!-- ![Editor modal](docs/modal-editor.png) -->
+<div align="center">
+<img src="images/open-in-neovim.png" alt="Open in Neovim" width="750">
+</div>
 
 ---
 
@@ -352,8 +356,9 @@ Copy any file from your computer into the currently selected folder:
 
 > Supports **multi-selection** — hold `Ctrl` or `Shift` in the dialog to select multiple files.
 
-<!-- Import modal screenshot placeholder -->
-<!-- ![Import modal](docs/modal-import.png) -->
+<div align="center">
+<img src="images/import-file.png" alt="Import file" width="750">
+</div>
 
 ---
 
@@ -386,14 +391,23 @@ Navigate fields with `Enter` or `Tab` / `Shift+Tab`. On confirm, the config is s
 
 Press `G` to open the configuration modal at any time and update the repo URL, username, or email.
 
+<div align="center">
+<img src="images/sync-configuration.png" alt="Git configuration" width="750">
+</div>
+
 ### Git indicator
 
 When connected, the header shows `  <username>` confirming the active GitHub configuration.
 
 > **Note:** The repository must exist on GitHub before syncing. For private repos, ensure credentials are cached via [Git Credential Manager](https://github.com/git-ecosystem/git-credential-manager) or SSH.
 
-<!-- Git sync modal screenshot placeholder -->
-<!-- ![Git sync](docs/modal-git-sync.png) -->
+<div align="center">
+<img src="images/sync-image1.png" alt="GitHub sync" width="750">
+</div>
+
+<div align="center">
+<img src="images/sync-image2.png" alt="GitHub sync result" width="750">
+</div>
 
 ---
 
