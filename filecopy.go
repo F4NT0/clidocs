@@ -52,6 +52,32 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 	return paths, nil
 }
 
+// openDirPicker shows a native Windows folder picker dialog via PowerShell.
+// Returns the selected directory path, or "" if cancelled.
+func openDirPicker() (string, error) {
+	ps := `
+Add-Type -AssemblyName System.Windows.Forms | Out-Null
+$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+$dialog.Description = "Select the snippets directory for clidocs"
+$dialog.ShowNewFolderButton = $true
+$result = $dialog.ShowDialog()
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+    Write-Output $dialog.SelectedPath
+}
+`
+	pwsh, err := exec.LookPath("pwsh")
+	if err != nil {
+		pwsh = "powershell"
+	}
+	cmd := exec.Command(pwsh, "-NoProfile", "-NonInteractive", "-Command", ps)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("folder picker failed: %v", err)
+	}
+	raw := strings.TrimSpace(string(out))
+	return raw, nil
+}
+
 // copyFileToDir copies src file into destDir, preserving the filename.
 // Returns an error if the destination already exists (will overwrite).
 func copyFileToDir(src, destDir string) error {

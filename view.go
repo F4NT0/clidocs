@@ -185,39 +185,63 @@ func (m model) renderFilesPanel(w, h int) string {
 	innerW := w - 2
 	innerH := h - 2
 
-	panelTitle := panelTitleStyle.Render(" Snippets")
 	var sb strings.Builder
-	sb.WriteString(panelTitle + "\n")
+
+	// ── title + search bar ───────────────────────────────────────────────────
+	if m.searchActive {
+		cursor := lipgloss.NewStyle().Background(colorAccentBlue).Foreground(colorBg).Render(" ")
+		searchBar := lipgloss.NewStyle().Foreground(colorAccentBlue).Render(" / ") +
+			lipgloss.NewStyle().Foreground(colorFg).Render(m.searchQuery) +
+			cursor
+		sb.WriteString(searchBar + "\n")
+	} else {
+		sb.WriteString(panelTitleStyle.Render(" Snippets") + "\n")
+	}
 	sb.WriteString(mutedStyle.Render(strings.Repeat("─", innerW)) + "\n")
+
+	// ── file list (filtered when searching) ──────────────────────────────────
+	filtered := m.filteredFiles()
+	folderName := m.currentFolderName()
 
 	if len(m.folders) == 0 {
 		sb.WriteString(mutedStyle.Render("Select a folder"))
+	} else if len(filtered) == 0 && m.searchActive {
+		sb.WriteString(mutedStyle.Render("No matches for: ") +
+			lipgloss.NewStyle().Foreground(colorAccentBlue).Render(m.searchQuery))
 	} else if len(m.files) == 0 {
-		count := "0 snippets"
-		sb.WriteString(mutedStyle.Render(count) + "\n\n")
+		sb.WriteString(mutedStyle.Render("0 snippets") + "\n\n")
 		sb.WriteString(mutedStyle.Render("Press n to create a file"))
 	} else {
-		count := fmt.Sprintf("%d snippet", len(m.files))
-		if len(m.files) != 1 {
-			count = fmt.Sprintf("%d snippets", len(m.files))
+		countN := len(filtered)
+		totalN := len(m.files)
+		var countStr string
+		if m.searchActive && countN < totalN {
+			countStr = fmt.Sprintf("%d / %d snippets", countN, totalN)
+		} else if totalN == 1 {
+			countStr = "1 snippet"
+		} else {
+			countStr = fmt.Sprintf("%d snippets", totalN)
 		}
-		sb.WriteString(mutedStyle.Render(count) + "\n\n")
+		sb.WriteString(mutedStyle.Render(countStr) + "\n\n")
 
-		for i, f := range m.files {
+		// clamp fileCursor within filtered range
+		cur := m.fileCursor
+		if cur >= len(filtered) {
+			cur = max(0, len(filtered)-1)
+		}
+
+		for i, f := range filtered {
 			ext, extColor := getFileIcon(f.name)
-			// render extension badge: fixed 4-char wide, colored
 			badge := lipgloss.NewStyle().
 				Foreground(extColor).
 				Width(5).
 				Align(lipgloss.Right).
 				Render(ext)
 			rel := relativeTime(f.modTime)
-			folderName := m.currentFolderName()
-
 			maxNameW := innerW - 8
 			displayName := truncate(f.name, maxNameW)
 
-			if i == m.fileCursor {
+			if i == cur {
 				cursor := fileArrowStyle.Render("> ")
 				nameStr := lipgloss.NewStyle().Foreground(colorGreen).Render(displayName)
 				metaStr := mutedStyle.Render(folderName + " • " + rel)
@@ -249,17 +273,18 @@ func (m model) renderFilesPanel(w, h int) string {
 	if isActive {
 		style = activePanelStyle
 	}
-
-	return style.
-		Width(w).
-		Height(h).
-		Render(content)
+	return style.Width(w).Height(h).Render(content)
 }
 
 func (m model) renderPreviewPanel(w, h int) string {
 	isActive := m.activePanel == panelPreview
 
-	innerH := h - 2
+	// reserve: title(1) + sep(1) + optional search bar(1)
+	headerLines := 2
+	if m.previewSearchActive {
+		headerLines = 3
+	}
+	availH := h - 2 - headerLines // h-2 for panel border
 
 	fileName := m.currentFileName()
 	var panelTitle string
@@ -267,7 +292,12 @@ func (m model) renderPreviewPanel(w, h int) string {
 		ext, extColor := getFileIcon(fileName)
 		badge := lipgloss.NewStyle().Foreground(extColor).Render(ext)
 		name := lipgloss.NewStyle().Foreground(colorFg).Bold(true).Render(fileName)
-		panelTitle = " " + badge + "  " + name
+		// line numbers indicator
+		lnTag := ""
+		if m.previewLineNumbers {
+			lnTag = " " + mutedStyle.Render("[LN]")
+		}
+		panelTitle = " " + badge + "  " + name + lnTag
 	} else {
 		panelTitle = panelTitleStyle.Render(" Preview")
 	}
@@ -276,24 +306,89 @@ func (m model) renderPreviewPanel(w, h int) string {
 	contentLines = append(contentLines, panelTitle)
 	contentLines = append(contentLines, mutedStyle.Render(strings.Repeat("─", w-4)))
 
-	if m.previewHighlight == "" {
-		if len(m.files) == 0 {
-			contentLines = append(contentLines, mutedStyle.Render("No file selected"))
-		} else {
-			contentLines = append(contentLines, mutedStyle.Render("Empty file — press Enter to edit"))
+	// search bar
+	if m.previewSearchActive {
+		prompt := lipgloss.NewStyle().Foreground(colorAccentBlue).Render(" / ")
+		qText := lipgloss.NewStyle().Foreground(colorFg).Render(m.previewSearchQuery)
+		cur := lipgloss.NewStyle().Background(colorAccentBlue).Foreground(colorBg).Render(" ")
+		hitInfo := ""
+		if len(m.previewSearchHits) > 0 {
+			hitInfo = " " + mutedStyle.Render(fmt.Sprintf("%d/%d  n: next  N: prev",
+				m.previewSearchCursor+1, len(m.previewSearchHits)))
+		} else if m.previewSearchQuery != "" && len(m.previewSearchHits) == 0 {
+			hitInfo = " " + lipgloss.NewStyle().Foreground(colorOrange).Render("Enter to search")
 		}
-	} else {
+		contentLines = append(contentLines, prompt+qText+cur+hitInfo)
+	}
+
+	// build hit-line set for fast lookup
+	hitSet := make(map[int]bool, len(m.previewSearchHits))
+	for _, idx := range m.previewSearchHits {
+		hitSet[idx] = true
+	}
+	currentHitLine := -1
+	if len(m.previewSearchHits) > 0 {
+		currentHitLine = m.previewSearchHits[m.previewSearchCursor]
+	}
+
+	if m.previewIsImage {
 		lines := strings.Split(m.previewHighlight, "\n")
 		start := m.previewScroll
 		if start > len(lines)-1 {
 			start = max(0, len(lines)-1)
 		}
-		availH := innerH - 2 // 2 lines used by title + separator
 		end := start + availH
 		if end > len(lines) {
 			end = len(lines)
 		}
 		contentLines = append(contentLines, lines[start:end]...)
+	} else if m.previewHighlight == "" {
+		if len(m.files) == 0 {
+			contentLines = append(contentLines, mutedStyle.Render("No file selected"))
+		} else if m.previewContent == "" && m.currentFileName() != "" {
+			contentLines = append(contentLines, mutedStyle.Render("Binary or unreadable file — preview not available"))
+		} else {
+			contentLines = append(contentLines, mutedStyle.Render("Empty file — press Enter to edit"))
+		}
+	} else {
+		hLines := strings.Split(m.previewHighlight, "\n")
+		start := m.previewScroll
+		if start > len(hLines)-1 {
+			start = max(0, len(hLines)-1)
+		}
+		end := start + availH
+		if end > len(hLines) {
+			end = len(hLines)
+		}
+
+		// line number gutter width
+		totalLines := len(strings.Split(m.previewContent, "\n"))
+		gnW := len(fmt.Sprintf("%d", totalLines))
+
+		for i, line := range hLines[start:end] {
+			absLine := start + i // 0-based line index
+			if m.previewLineNumbers {
+				lineNum := fmt.Sprintf("%*d", gnW, absLine+1)
+				var gnStyle lipgloss.Style
+				if absLine == currentHitLine {
+					gnStyle = lipgloss.NewStyle().Foreground(colorOrange).Bold(true)
+				} else if hitSet[absLine] {
+					gnStyle = lipgloss.NewStyle().Foreground(colorGreen)
+				} else {
+					gnStyle = mutedStyle
+				}
+				contentLines = append(contentLines, gnStyle.Render(lineNum)+ mutedStyle.Render(" │ ")+line)
+			} else if absLine == currentHitLine {
+				// highlight current hit line even without line numbers
+				contentLines = append(contentLines,
+					lipgloss.NewStyle().Foreground(colorOrange).Bold(true).Render("▶ ")+line)
+			} else if hitSet[absLine] {
+				contentLines = append(contentLines,
+					lipgloss.NewStyle().Foreground(colorGreen).Render("• ")+line)
+			} else {
+				contentLines = append(contentLines, line)
+			}
+		}
 	}
 
 	content := strings.Join(contentLines, "\n")
@@ -405,6 +500,59 @@ func (m model) renderEditorReadyModal() string {
 	)
 }
 
+func (m model) renderMoveFileModal() string {
+	destinations := m.moveDestinations()
+
+	ext, extColor := getFileIcon(m.currentFileName())
+	badge := lipgloss.NewStyle().Foreground(extColor).Render(ext)
+	name := lipgloss.NewStyle().Foreground(colorFg).Render(m.currentFileName())
+	title := modalTitleStyle.Render(" Move File")
+	filesep := mutedStyle.Render(strings.Repeat("─", 44))
+
+	var rows []string
+	rows = append(rows, title, "", badge+"  "+name, filesep, "")
+
+	if len(destinations) == 0 {
+		rows = append(rows, mutedStyle.Render("No other folders available."))
+	} else {
+		for i, f := range destinations {
+			folderIcon := mutedStyle.Render(" ")
+			if i == m.moveCursor {
+				arrow := lipgloss.NewStyle().Foreground(colorOrange).Render("> ")
+				nameStr := lipgloss.NewStyle().Foreground(colorAccentBlue).Render(f)
+				rows = append(rows, arrow+folderIcon+nameStr)
+			} else {
+				nameStr := lipgloss.NewStyle().Foreground(colorFg).Render(f)
+				rows = append(rows, "   "+folderIcon+nameStr)
+			}
+		}
+	}
+
+	rows = append(rows, "", helpStyle.Render("↑↓: select folder   Enter: move   Esc: cancel"))
+	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
+}
+
+func (m model) renderDirInfoModal() string {
+	title := modalTitleStyle.Render(" Snippets Directory")
+	sep := mutedStyle.Render(strings.Repeat("─", 44))
+	dirStr := lipgloss.NewStyle().Foreground(colorAccentBlue).Render(m.snippetsDir)
+	help := helpStyle.Render("Enter: open in Explorer   s: change directory   Esc: close")
+	return modalStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left,
+			title, "", dirStr, sep, help,
+		),
+	)
+}
+
+func (m model) renderChangeDirPickerModal() string {
+	title := modalTitleStyle.Render(" Change Directory")
+	info := lipgloss.NewStyle().Foreground(colorFg).Render("Opening folder picker...")
+	sub := mutedStyle.Render("Select a new directory to use as snippets root.")
+	return modalStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left, title, "", info, sub),
+	)
+}
+
 func (m model) renderDeleteConfirmModal() string {
 	ext, extColor := getFileIcon(m.currentFileName())
 	badge := lipgloss.NewStyle().Foreground(extColor).Render(ext)
@@ -443,9 +591,27 @@ func (m model) renderGitSyncingModal() string {
 }
 
 func (m model) renderStatusBar() string {
-	help := "Tab: panel  ↑↓: nav  Enter: edit  n: new  c: import  d: delete  r: reload  g: sync  G: git config  q: quit"
+	var help string
 	if m.statusMsg != "" {
 		help = m.statusMsg
+	} else if m.searchActive {
+		help = "Typing: filter files  ↑↓: navigate results  Enter: select  Esc: cancel search"
+	} else if m.previewSearchActive {
+		if len(m.previewSearchHits) > 0 {
+			help = fmt.Sprintf("Enter: search  n: next hit  N: prev hit  (%d matches)  Esc: close",
+				len(m.previewSearchHits))
+		} else {
+			help = "Type word then Enter to search  Esc: cancel"
+		}
+	} else {
+		switch m.activePanel {
+		case panelFolders:
+			help = "↑↓: folders  Enter/→: open  n: new folder  o: dir info  Tab/→: next panel  q: quit"
+		case panelFiles:
+			help = "↑↓: files  Enter: edit  /: search  n: new  m: move  c: import  d: delete  r: reload  Tab: next panel"
+		case panelPreview:
+			help = "↑↓: scroll  /: find word  L: line numbers  Tab: next panel  q: quit"
+		}
 	}
 	return lipgloss.NewStyle().
 		Background(colorBg).
@@ -480,6 +646,12 @@ func (m model) renderWithModal() string {
 		modal = m.renderCopyFileModal()
 	case modalDeleteConfirm:
 		modal = m.renderDeleteConfirmModal()
+	case modalMoveFile:
+		modal = m.renderMoveFileModal()
+	case modalDirInfo:
+		modal = m.renderDirInfoModal()
+	case modalChangeDirPicker:
+		modal = m.renderChangeDirPickerModal()
 	}
 
 	return overlayModal(base, modal, m.width, m.height)

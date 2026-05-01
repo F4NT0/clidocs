@@ -35,6 +35,9 @@ const (
 	modalEditorReady
 	modalCopyFile
 	modalDeleteConfirm
+	modalMoveFile
+	modalDirInfo
+	modalChangeDirPicker
 )
 
 type fileEntry struct {
@@ -58,6 +61,7 @@ type model struct {
 	previewContent   string
 	previewHighlight string
 	previewScroll    int
+	previewIsImage   bool
 
 	modal        modalKind
 	modalInput   textinput.Model
@@ -72,6 +76,23 @@ type model struct {
 	modalInput3  textinput.Model
 
 	editorPath string
+
+	// move-file modal
+	moveCursor int
+
+	// custom snippets dir (persisted across session)
+	newSnippetsDir string
+
+	// inline search in files panel
+	searchActive bool
+	searchQuery  string
+
+	// preview panel features
+	previewLineNumbers bool
+	previewSearchActive bool
+	previewSearchQuery  string
+	previewSearchHits   []int // line indices (0-based) of matches
+	previewSearchCursor int  // which hit is currently focused
 }
 
 func newModel(dir string) model {
@@ -151,19 +172,51 @@ func (m *model) loadPreview() {
 	m.previewContent = ""
 	m.previewHighlight = ""
 	m.previewScroll = 0
+	m.previewIsImage = false
 	if len(m.files) == 0 || len(m.folders) == 0 {
 		return
 	}
 	f := m.files[m.fileCursor]
 	path := filepath.Join(m.snippetsDir, m.folders[m.folderCursor], f.name)
+
+	if isImageFile(f.name) {
+		m.previewIsImage = true
+		m.previewHighlight = renderImagePreview(path, m.width/3)
+		return
+	}
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		m.previewContent = fmt.Sprintf("Error reading file: %v", err)
 		m.previewHighlight = m.previewContent
 		return
 	}
+	if isBinary(data) {
+		m.previewContent = ""
+		m.previewHighlight = ""
+		return
+	}
 	m.previewContent = string(data)
 	m.previewHighlight = highlightCode(m.previewContent, f.name)
+}
+
+// isBinary returns true when data contains null bytes or too many non-printable
+// characters, which indicates a binary file that should not be rendered.
+func isBinary(data []byte) bool {
+	check := data
+	if len(check) > 8000 {
+		check = check[:8000]
+	}
+	nonPrintable := 0
+	for _, b := range check {
+		if b == 0 {
+			return true
+		}
+		if b < 0x08 || (b >= 0x0e && b < 0x20 && b != 0x1b) {
+			nonPrintable++
+		}
+	}
+	return len(check) > 0 && nonPrintable*100/len(check) > 10
 }
 
 func (m model) Init() tea.Cmd {
@@ -194,6 +247,37 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// filteredFiles returns the files list filtered by m.searchQuery.
+// When searchActive is false or query is empty, returns all files.
+func (m model) filteredFiles() []fileEntry {
+	if !m.searchActive || strings.TrimSpace(m.searchQuery) == "" {
+		return m.files
+	}
+	q := strings.ToLower(strings.TrimSpace(m.searchQuery))
+	var out []fileEntry
+	for _, f := range m.files {
+		if matchName(f.name, q) {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// computePreviewSearchHits returns the 0-based line indices that contain query.
+func computePreviewSearchHits(content, query string) []int {
+	if query == "" || content == "" {
+		return nil
+	}
+	q := strings.ToLower(query)
+	var hits []int
+	for i, line := range strings.Split(content, "\n") {
+		if strings.Contains(strings.ToLower(line), q) {
+			hits = append(hits, i)
+		}
+	}
+	return hits
 }
 
 func (m model) currentFolderName() string {

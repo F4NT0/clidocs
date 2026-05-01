@@ -14,6 +14,16 @@ import (
 
 type clearStatusMsg struct{}
 
+type dirPickerResultMsg struct {
+	dir string
+	err error
+}
+
+type moveFileResultMsg struct {
+	destFolder string
+	err        error
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
@@ -99,6 +109,43 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case dirPickerResultMsg:
+		m.modal = modalNone
+		if msg.err != nil {
+			m.modal = modalError
+			m.modalError = msg.err.Error()
+			return m, nil
+		}
+		if msg.dir == "" {
+			m.statusMsg = "No directory selected."
+			return m, clearStatusAfter(3 * time.Second)
+		}
+		m.snippetsDir = msg.dir
+		m.folderCursor = 0
+		m.fileCursor = 0
+		if err := os.MkdirAll(msg.dir, 0755); err != nil {
+			m.modal = modalError
+			m.modalError = fmt.Sprintf("Cannot use directory: %v", err)
+			return m, nil
+		}
+		m.loadFolders()
+		m.loadFiles()
+		m.loadPreview()
+		m.statusMsg = "Snippets directory changed to: " + msg.dir
+		return m, clearStatusAfter(5 * time.Second)
+
+	case moveFileResultMsg:
+		m.modal = modalNone
+		if msg.err != nil {
+			m.modal = modalError
+			m.modalError = msg.err.Error()
+			return m, nil
+		}
+		m.loadFiles()
+		m.loadPreview()
+		m.statusMsg = "File moved to " + msg.destFolder + "."
+		return m, clearStatusAfter(3 * time.Second)
+
 	case gitSyncResultMsg:
 		if msg.err != nil {
 			m.modal = modalError
@@ -112,6 +159,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if m.modal != modalNone {
 			return m.handleModalKey(msg)
+		}
+		if m.searchActive {
+			return m.handleSearchKey(msg)
+		}
+		if m.previewSearchActive {
+			return m.handlePreviewSearchKey(msg)
 		}
 		return m.handleKey(msg)
 	}
@@ -224,11 +277,41 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.modal = modalDeleteConfirm
 		}
 
+	case "m":
+		// move current file to another folder
+		if m.activePanel == panelFiles && len(m.files) > 0 && len(m.folders) > 1 {
+			m.moveCursor = 0
+			// skip current folder in selection — handled in modal render
+			m.modal = modalMoveFile
+		}
+
+	case "o":
+		// show current snippets dir info
+		m.modal = modalDirInfo
+
 	case "c":
 		if m.activePanel == panelFiles && len(m.folders) > 0 {
 			destDir := filepath.Join(m.snippetsDir, m.currentFolderName())
 			m.modal = modalCopyFile
 			return m, doCopyFile(destDir)
+		}
+
+	case "L":
+		m.previewLineNumbers = !m.previewLineNumbers
+
+	case "/":
+		switch m.activePanel {
+		case panelFiles:
+			m.searchActive = true
+			m.searchQuery = ""
+			m.fileCursor = 0
+		case panelPreview:
+			if m.previewContent != "" {
+				m.previewSearchActive = true
+				m.previewSearchQuery = ""
+				m.previewSearchHits = nil
+				m.previewSearchCursor = 0
+			}
 		}
 
 	case "r":
@@ -258,6 +341,42 @@ func doCopyFile(destDir string) tea.Cmd {
 			}
 		}
 		return fileCopyResultMsg{copied: len(paths)}
+	}
+}
+
+// moveDestinations returns the list of folders excluding the current one.
+func (m model) moveDestinations() []string {
+	current := m.currentFolderName()
+	var dest []string
+	for _, f := range m.folders {
+		if f != current {
+			dest = append(dest, f)
+		}
+	}
+	return dest
+}
+
+func doMoveFile(srcPath, destDir, destFolder string) tea.Cmd {
+	return func() tea.Msg {
+		name := filepath.Base(srcPath)
+		dest := filepath.Join(destDir, name)
+		if err := os.Rename(srcPath, dest); err != nil {
+			// Rename may fail across drives — fallback to copy+delete
+			if err2 := copyFileToDir(srcPath, destDir); err2 != nil {
+				return moveFileResultMsg{err: fmt.Errorf("move failed: %v", err2)}
+			}
+			if err2 := os.Remove(srcPath); err2 != nil {
+				return moveFileResultMsg{err: fmt.Errorf("cleanup failed: %v", err2)}
+			}
+		}
+		return moveFileResultMsg{destFolder: destFolder}
+	}
+}
+
+func doPickDir() tea.Cmd {
+	return func() tea.Msg {
+		dir, err := openDirPicker()
+		return dirPickerResultMsg{dir: dir, err: err}
 	}
 }
 
@@ -365,6 +484,49 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "esc", "n", "q":
 			m.modal = modalNone
 		}
+		return m, nil
+
+	case modalMoveFile:
+		// build list of folders excluding current
+		destinations := m.moveDestinations()
+		switch msg.String() {
+		case "up", "k":
+			if m.moveCursor > 0 {
+				m.moveCursor--
+			}
+		case "down", "j":
+			if m.moveCursor < len(destinations)-1 {
+				m.moveCursor++
+			}
+		case "enter":
+			if len(destinations) == 0 {
+				m.modal = modalNone
+				return m, nil
+			}
+			destFolder := destinations[m.moveCursor]
+			srcPath := m.currentFilePath()
+			destDir := filepath.Join(m.snippetsDir, destFolder)
+			return m, doMoveFile(srcPath, destDir, destFolder)
+		case "esc", "q":
+			m.modal = modalNone
+		}
+		return m, nil
+
+	case modalDirInfo:
+		switch msg.String() {
+		case "enter":
+			// open explorer at snippets dir
+			_ = exec.Command("explorer.exe", filepath.FromSlash(m.snippetsDir)).Start()
+		case "s":
+			m.modal = modalChangeDirPicker
+			return m, doPickDir()
+		case "esc", "q", "o":
+			m.modal = modalNone
+		}
+		return m, nil
+
+	case modalChangeDirPicker:
+		// waiting for async dir picker result, ignore keys
 		return m, nil
 
 	case modalEditorReady:
@@ -554,6 +716,113 @@ func (m model) handleGitModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, cmd
+}
+
+// handleSearchKey handles keypresses while inline search is active in the files panel.
+func (m model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "ctrl+c":
+		m.searchActive = false
+		m.searchQuery = ""
+		m.fileCursor = 0
+		m.loadPreview()
+
+	case "backspace", "ctrl+h":
+		if len(m.searchQuery) > 0 {
+			m.searchQuery = m.searchQuery[:len(m.searchQuery)-1]
+		}
+		m.fileCursor = 0
+		m.loadPreview()
+
+	case "up", "k":
+		if m.fileCursor > 0 {
+			m.fileCursor--
+			m.loadPreview()
+		}
+
+	case "down", "j":
+		filtered := m.filteredFiles()
+		if m.fileCursor < len(filtered)-1 {
+			m.fileCursor++
+			m.loadPreview()
+		}
+
+	case "enter":
+		// confirm selection: map fileCursor back to real file, exit search
+		filtered := m.filteredFiles()
+		if len(filtered) > 0 && m.fileCursor < len(filtered) {
+			selected := filtered[m.fileCursor]
+			for i, f := range m.files {
+				if f.name == selected.name {
+					m.fileCursor = i
+					break
+				}
+			}
+		}
+		m.searchActive = false
+		m.searchQuery = ""
+		m.loadPreview()
+
+	default:
+		// append printable characters to query
+		r := msg.String()
+		if len(r) == 1 && r[0] >= 0x20 {
+			m.searchQuery += r
+			m.fileCursor = 0
+			m.loadPreview()
+		}
+	}
+	return m, nil
+}
+
+// handlePreviewSearchKey handles keypresses while preview word-search is active.
+func (m model) handlePreviewSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "ctrl+c":
+		m.previewSearchActive = false
+		m.previewSearchQuery = ""
+		m.previewSearchHits = nil
+		m.previewSearchCursor = 0
+
+	case "backspace", "ctrl+h":
+		if len(m.previewSearchQuery) > 0 {
+			m.previewSearchQuery = m.previewSearchQuery[:len(m.previewSearchQuery)-1]
+		}
+		m.previewSearchHits = nil
+		m.previewSearchCursor = 0
+
+	case "enter":
+		// compute hits and jump to first one
+		hits := computePreviewSearchHits(m.previewContent, m.previewSearchQuery)
+		m.previewSearchHits = hits
+		m.previewSearchCursor = 0
+		if len(hits) > 0 {
+			m.previewScroll = max(0, hits[0]-3)
+		}
+
+	case "n":
+		// next hit
+		if len(m.previewSearchHits) > 0 {
+			m.previewSearchCursor = (m.previewSearchCursor + 1) % len(m.previewSearchHits)
+			m.previewScroll = max(0, m.previewSearchHits[m.previewSearchCursor]-3)
+		}
+
+	case "N":
+		// previous hit
+		if len(m.previewSearchHits) > 0 {
+			m.previewSearchCursor = (m.previewSearchCursor - 1 + len(m.previewSearchHits)) % len(m.previewSearchHits)
+			m.previewScroll = max(0, m.previewSearchHits[m.previewSearchCursor]-3)
+		}
+
+	default:
+		r := msg.String()
+		if len(r) == 1 && r[0] >= 0x20 {
+			m.previewSearchQuery += r
+			m.previewSearchHits = nil
+			m.previewSearchCursor = 0
+		}
+	}
+	return m, nil
 }
 
 // Needed for textinput

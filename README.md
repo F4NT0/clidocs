@@ -48,10 +48,17 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 - **Syntax highlighting** powered by [Chroma](https://github.com/alecthomas/chroma) with the GitHub Dark theme
 - **Language badges** — each file shows its extension label in the official language color (e.g. `py` in Python blue, `cs` in C# purple)
 - **Folder icons** — selected folder highlighted in blue
+- **Inline file search** — press `/` in Snippets to filter files by name in real-time; supports glob patterns (`*.go`)
+- **Preview word search** — press `/` in Preview to search for any word; press `Enter` to find all matches, `n`/`N` to cycle
+- **Line numbers** — toggle line numbers in Preview with `L`; matched lines are highlighted
+- **Contextual status bar** — hints change automatically based on which panel is active
 - **Neovim editing** — opens in a new Windows Terminal tab; TUI stays alive while you edit
 - **File import** — native Windows file picker to copy any file into the current folder
 - **Delete with confirmation** — press `d` to delete the selected file; a modal asks for confirmation before removing
+- **Move between folders** — press `m` to move a snippet to another folder with an interactive picker modal
+- **Snippets directory info** — press `o` to see the current snippets path, open it in Explorer, or switch to a different directory
 - **GitHub sync** — push your snippets to a remote repository with a single key press
+- **TUI Installer** — run `clidocs-install.exe` to add `clidocs` to PATH and create the `clidoc` PowerShell alias automatically
 - **Dark theme** — unified `#0d1117` background throughout, GitHub-inspired palette
 
 ---
@@ -135,27 +142,108 @@ After that, open any PowerShell window and type `clidocs`.
 
 ## Navigation
 
-| Key | Panel | Action |
-|---|---|---|
-| `Tab` / `→` | Any | Move focus right to the next panel |
-| `←` | Any | Move focus left to the previous panel |
-| `↑` / `k` | Folders | Select previous folder |
-| `↓` / `j` | Folders | Select next folder |
-| `↑` / `k` | Snippets | Select previous file |
-| `↓` / `j` | Snippets | Select next file |
-| `↑` / `k` | Preview | Scroll content up |
-| `↓` / `j` | Preview | Scroll content down |
-| `Enter` | Folders | Open folder, move focus to Snippets |
-| `Enter` | Snippets | Open file in Neovim (new terminal window) |
-| `s` | Any | Jump back to Folders panel |
-| `d` | Snippets | Delete the currently selected file (with confirmation) |
-| `r` | Any | Reload files and preview |
-| `?` | Any | Show keybinding hint in status bar |
-| `q` / `Ctrl+C` | Any | Quit |
+### Folders panel
+
+| Key | Action |
+|---|---|
+| `↑` / `k` | Previous folder |
+| `↓` / `j` | Next folder |
+| `Enter` / `→` | Open folder, move focus to Snippets |
+| `n` | Create new folder |
+| `o` | Snippets directory info |
+| `Tab` / `→` | Next panel |
+| `q` / `Ctrl+C` | Quit |
+
+### Snippets panel
+
+| Key | Action |
+|---|---|
+| `↑` / `k` | Previous file |
+| `↓` / `j` | Next file |
+| `Enter` | Open selected file in Neovim |
+| `/` | **Inline search** — filter files by name |
+| `n` | Create new file |
+| `m` | Move file to another folder |
+| `c` | Import file from Windows file picker |
+| `d` | Delete selected file (with confirmation) |
+| `r` | Reload files and preview |
+| `Tab` | Next panel |
+
+#### Inline search mode (`/` in Snippets)
+
+| Key | Action |
+|---|---|
+| Type | Filter files in real-time (supports `*.go` glob) |
+| `↑` / `↓` | Navigate filtered results (preview updates live) |
+| `Enter` | Confirm selection, exit search — file stays selected |
+| `Esc` | Cancel search, restore full list |
+
+### Preview panel
+
+| Key | Action |
+|---|---|
+| `↑` / `k` | Scroll up |
+| `↓` / `j` | Scroll down |
+| `L` | Toggle line numbers |
+| `/` | **Word search** in current file |
+| `Tab` | Next panel |
+| `q` / `Ctrl+C` | Quit |
+
+#### Preview word search mode (`/` in Preview)
+
+| Key | Action |
+|---|---|
+| Type | Enter search term |
+| `Enter` | Find all matches — matched lines highlighted |
+| `n` | Jump to next match |
+| `N` | Jump to previous match |
+| `Esc` | Close search |
+
+### Global
+
+| Key | Action |
+|---|---|
+| `Tab` / `→` / `←` | Switch panels |
+| `s` | Jump to Folders panel |
+| `g` | Sync to GitHub |
+| `G` | Edit GitHub config |
+| `o` | Snippets directory info |
+| `r` | Reload |
+| `q` / `Ctrl+C` | Quit |
 
 ---
 
 ## Snippets Management
+
+### Inline File Search
+
+1. Focus the **Snippets** panel
+2. Press `/` — the title bar changes to a search input `/ query█`
+3. Type to filter: matches update instantly
+   - `docker` → any filename containing *docker*
+   - `*.go` → all Go files (glob)
+   - `main.go` → exact match
+4. Use `↑`/`↓` to navigate — **preview updates live** as you move
+5. Press `Enter` to confirm selection (stays on that file, no editor opens)
+6. Press `Esc` to cancel and restore the full list
+
+### Preview Word Search
+
+1. Focus the **Preview** panel
+2. Press `/` — a search bar appears below the file title
+3. Type the word or phrase you want to find
+4. Press `Enter` — all matching lines are highlighted:
+   - **Orange `▶`** — current hit (focused match)
+   - **Green `•`** — other matches
+5. Press `n` / `N` to cycle forward/backward through hits
+6. The view auto-scrolls to keep the current hit visible
+7. Press `Esc` to close the search bar
+
+### Line Numbers
+
+Press `L` while the Preview panel is active to toggle line numbers on/off.
+When line numbers are enabled, matched lines show their number in orange (current) or green (other hits).
+
 
 ### Create a folder
 
@@ -184,6 +272,41 @@ After that, open any PowerShell window and type `clidocs`.
 
 <!-- Delete modal screenshot placeholder -->
 <!-- ![Delete modal](docs/modal-delete.png) -->
+
+### Move a file to another folder
+
+1. Focus the **Snippets** panel and navigate to the file
+2. Press `m` (requires at least 2 folders)
+3. A modal opens listing all other folders — navigate with `↑↓`
+4. Press `Enter` to move the file; the list reloads automatically
+
+<!-- Move modal screenshot placeholder -->
+<!-- ![Move modal](docs/modal-move.png) -->
+
+---
+
+## Snippets Directory
+
+Press `o` from any panel to open the directory info modal:
+
+```
+ Snippets Directory
+
+C:\Users\You\clidocs_snippets
+────────────────────────────────────────────
+Enter: open in Explorer   s: change directory   Esc: close
+```
+
+| Action | Description |
+|---|---|
+| `Enter` | Opens the snippets folder in Windows Explorer |
+| `s` | Opens a native folder picker to choose a new snippets directory |
+| `Esc` | Closes the modal |
+
+> Changing the directory takes effect immediately — clidocs reloads with the new root. The original default directory (`%USERPROFILE%\clidocs_snippets`) is not deleted.
+
+<!-- Dir info modal screenshot placeholder -->
+<!-- ![Dir info modal](docs/modal-dir-info.png) -->
 
 ---
 
