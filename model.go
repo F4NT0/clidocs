@@ -40,6 +40,10 @@ const (
 	modalDirInfo
 	modalChangeDirPicker
 	modalFavorites
+	modalRenameFolder
+	modalDeleteFolder
+	modalRenameFile
+	modalSubfolderNav
 )
 
 type fileEntry struct {
@@ -64,6 +68,7 @@ type model struct {
 	previewHighlight string
 	previewScroll    int
 	previewIsImage   bool
+	previewFilePath  string // absolute path of previewed file (may differ from currentFilePath when in subNav)
 
 	modal        modalKind
 	modalInput   textinput.Model
@@ -106,6 +111,16 @@ type model struct {
 	// scroll offsets for virtual lists
 	folderScroll int // top visible index in folders list
 	fileScroll   int // top visible index in files list
+
+	// subfolder navigation modal
+	subNavStack   []string // stack of folder path segments relative to snippetsDir
+	subNavEntries []subNavEntry
+	subNavCursor  int
+}
+
+type subNavEntry struct {
+	name     string
+	isDir    bool
 }
 
 func newModel(dir string) model {
@@ -272,6 +287,7 @@ func (m *model) loadPreview() {
 	m.previewHighlight = ""
 	m.previewScroll = 0
 	m.previewIsImage = false
+	m.previewFilePath = ""
 	folderName := m.currentFolderName()
 	if folderName == "" {
 		return
@@ -281,6 +297,7 @@ func (m *model) loadPreview() {
 		return
 	}
 	path := filepath.Join(m.snippetsDir, folderName, f.name)
+	m.previewFilePath = path
 
 	if isImageFile(f.name) {
 		m.previewIsImage = true
@@ -301,6 +318,34 @@ func (m *model) loadPreview() {
 	}
 	m.previewContent = string(data)
 	m.previewHighlight = highlightCode(m.previewContent, f.name)
+}
+
+// loadPreviewFromPath loads a preview for any arbitrary absolute file path.
+func (m *model) loadPreviewFromPath(path string) {
+	m.previewContent = ""
+	m.previewHighlight = ""
+	m.previewScroll = 0
+	m.previewIsImage = false
+	m.previewFilePath = path
+	name := filepath.Base(path)
+	if isImageFile(name) {
+		m.previewIsImage = true
+		m.previewHighlight = renderImagePreview(path, m.width/3)
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		m.previewContent = fmt.Sprintf("Error reading file: %v", err)
+		m.previewHighlight = m.previewContent
+		return
+	}
+	if isBinary(data) {
+		m.previewContent = ""
+		m.previewHighlight = ""
+		return
+	}
+	m.previewContent = string(data)
+	m.previewHighlight = highlightCode(m.previewContent, name)
 }
 
 // isBinary returns true when data contains null bytes or too many non-printable
@@ -404,6 +449,41 @@ func (m model) currentFilePath() string {
 		return ""
 	}
 	return filepath.Join(m.snippetsDir, m.folders[m.folderCursor], f.name)
+}
+
+// hasSubfolders returns true if the folder at relPath (relative to snippetsDir) contains subdirectories.
+func (m *model) hasSubfolders(relPath string) bool {
+	dir := filepath.Join(m.snippetsDir, relPath)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			return true
+		}
+	}
+	return false
+}
+
+// loadSubNavEntries populates subNavEntries for the current subNavStack path.
+func (m *model) loadSubNavEntries() {
+	rel := strings.Join(m.subNavStack, string(filepath.Separator))
+	dir := filepath.Join(m.snippetsDir, rel)
+	entries, err := os.ReadDir(dir)
+	m.subNavEntries = nil
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		m.subNavEntries = append(m.subNavEntries, subNavEntry{
+			name:  e.Name(),
+			isDir: e.IsDir(),
+		})
+	}
 }
 
 func relativeTime(t time.Time) string {

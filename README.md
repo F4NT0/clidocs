@@ -7,13 +7,20 @@
 [![Go Version](https://img.shields.io/badge/Go-1.24%2B-00add8?style=flat-square&logo=go)](https://go.dev)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078d4?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
 [![Shell](https://img.shields.io/badge/Shell-PowerShell-5391fe?style=flat-square&logo=powershell)](https://learn.microsoft.com/powershell)
-[![Editor](https://img.shields.io/badge/Editor-Neovim-57a143?style=flat-square&logo=neovim)](https://neovim.io)
+[![Editor](https://img.shields.io/badge/Editor-Neovim%20%7C%20VS%20Code-57a143?style=flat-square&logo=neovim)](https://neovim.io)
 [![License](https://img.shields.io/badge/License-MIT-e6edf3?style=flat-square)](LICENSE)
 
-Organize, preview, and edit code snippets in a three-panel TUI — with syntax highlighting, GitHub sync, and Windows-native file import.
+Organize, preview, and edit code snippets in a three-panel TUI — with syntax highlighting, subfolder navigation, GitHub sync, and Windows-native file import.
 
-<!-- Screenshot placeholder -->
-<!-- ![clidocs screenshot](docs/screenshot.png) -->
+</div>
+
+<!-- ============================================================ -->
+<!--  SCREENSHOT — replace the src with your actual image path   -->
+<!-- ============================================================ -->
+<div align="center">
+
+<!-- <img src="images/screenshot-main.png" alt="clidocs main interface" width="900"> -->
+> 📸 *Screenshot placeholder — add `images/screenshot-main.png`*
 
 </div>
 
@@ -24,11 +31,15 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
+- [Usage](#usage)
 - [Interface](#interface)
-- [Navigation](#navigation)
+- [Keyboard Shortcuts](#keyboard-shortcuts)
+- [Folder Management](#folder-management)
+- [Subfolder Navigation](#subfolder-navigation)
 - [Snippets Management](#snippets-management)
+- [Preview Panel](#preview-panel)
 - [Folder Favorites](#folder-favorites)
-- [Copy to Clipboard](#copy-to-clipboard)
+- [Snippets Directory](#snippets-directory)
 - [Neovim Integration](#neovim-integration)
 - [File Import](#file-import)
 - [GitHub Sync](#github-sync)
@@ -42,48 +53,50 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 
 [![TUI](https://img.shields.io/badge/Three--panel%20TUI-Folders%20%7C%20Snippets%20%7C%20Preview-30363d?style=flat-square)](.)
 [![Highlight](https://img.shields.io/badge/Syntax%20Highlighting-GitHub%20Dark-161b22?style=flat-square&logo=github)](.)
-[![Neovim](https://img.shields.io/badge/Edit%20with-Neovim%20in%20new%20window-57a143?style=flat-square&logo=neovim)](.)
+[![Neovim](https://img.shields.io/badge/Edit%20with-Neovim%20%7C%20VS%20Code-57a143?style=flat-square&logo=neovim)](.)
 [![Git](https://img.shields.io/badge/Sync%20to-GitHub-f05033?style=flat-square&logo=git)](.)
 [![Import](https://img.shields.io/badge/Import-Files%20from%20anywhere-e8912d?style=flat-square)](.)
 
 - **Three-panel layout** — Folders / Snippets / Preview, fully keyboard-driven
+- **Subfolder navigation** — folders containing subfolders show a `›` indicator; press `Enter` to browse them in a modal, navigate with `↑↓`, `Enter` to descend, `Backspace` to go back up
+- **Rename folders** — press `R` in the Folders panel to rename any folder inline
+- **Delete folders** — press `D` in the Folders panel to delete a folder and all its contents (with confirmation)
+- **Rename snippets** — press `r` in the Snippets panel to rename the selected file
 - **Syntax highlighting** powered by [Chroma](https://github.com/alecthomas/chroma) with the GitHub Dark theme
-- **Language badges** — each file shows its extension label in the official language color (e.g. `py` in Python blue, `cs` in C# purple)
-- **Folder icons** — Nerd Font `` icon beside every folder name; selected folder highlighted in blue
-- **Virtual scroll** — Folders and Snippets panels scroll smoothly with no visual scrollbar; cursor always stays visible
-- **Folder favorites** — press `f` to favorite/unfavorite any folder; press `F` to open the Favorites modal and jump directly to a saved folder
-- **Return to home directory** — press `H` in the Folders panel to return to the original snippets directory after browsing another one
-- **Copy preview to clipboard** — press `c` in the Preview panel to copy the entire file content; a green success message confirms
-- **Inline file search** — press `/` in Snippets to filter files by name in real-time; supports glob patterns (`*.go`)
-- **Preview word search** — press `/` in Preview to search for any word; press `Enter` to find all matches, `n`/`N` to cycle
-- **Line numbers** — toggle line numbers in Preview with `L`; matched lines are highlighted
-- **Contextual status bar** — hints change automatically based on which panel is active
-- **Neovim editing** — opens in a new Windows Terminal tab; TUI stays alive while you edit
-- **File import** — native Windows file picker to copy any file into the current folder
-- **Delete with confirmation** — press `d` to delete the selected file; a modal asks for confirmation before removing
-- **Move between folders** — press `m` to move a snippet to another folder with an interactive picker modal
-- **Snippets directory info** — press `o` to see the current snippets path, open it in Explorer, or switch to a different directory
+- **Language badges** — each file shows its extension label in the official language color
+- **Full file path** — the Preview panel shows the complete absolute path in orange below the file title
+- **Open in Neovim or VS Code** — press `e` (Neovim) or `v` (VS Code) from anywhere to open the previewed file
+- **Open file location** — press `o` in the Preview panel to open the file's folder in Windows Explorer
+- **Virtual scroll** — Folders and Snippets panels scroll smoothly; cursor always stays visible
+- **Folder favorites** — press `f` to favorite/unfavorite; press `F` for the Favorites jump modal
+- **Return to home directory** — press `H` to return to the original snippets directory
+- **Copy preview to clipboard** — press `c` in Preview to copy the entire file content
+- **Inline file search** — press `/` in Snippets to filter files by name in real-time
+- **Preview word search** — press `/` in Preview to search for any word with match highlighting
+- **Line numbers** — toggle with `L`; matched search lines highlighted in orange / green
+- **Modern folder picker** — uses Windows Explorer-style `IFileOpenDialog` when changing directory
+- **Contextual status bar** — hints update automatically based on active panel
+- **File import** — native Windows multi-select file picker
+- **Delete with confirmation** — press `d` to delete a snippet safely
+- **Move between folders** — press `m` to move a snippet to another folder
 - **GitHub sync** — push your snippets to a remote repository with a single key press
-- **TUI Installer** — run `clidocs-install.exe` to add `clidocs` to PATH and create the `clidoc` PowerShell alias automatically
-- **Dark theme** — unified `#0d1117` background throughout, GitHub-inspired palette
+- **TUI Installer** — `clidocs-install.exe` adds `clidocs` to PATH automatically
+- **CLI directory argument** — run `clidocs`, `clidocs .`, or `clidocs <path>` to open any directory
+- **Dark theme** — unified `#0d1117` background, GitHub-inspired palette
 
 ---
 
 ## Requirements
 
-[![Go](https://img.shields.io/badge/Go-1.24%2B-00add8?style=flat-square&logo=go)](https://go.dev/dl)
-[![Neovim](https://img.shields.io/badge/Neovim-required%20for%20editing-57a143?style=flat-square&logo=neovim)](https://neovim.io)
-[![Windows Terminal](https://img.shields.io/badge/Windows%20Terminal-recommended-0078d4?style=flat-square)](https://aka.ms/terminal)
-[![Git](https://img.shields.io/badge/Git-required%20for%20sync-f05033?style=flat-square&logo=git)](https://git-scm.com)
-
 | Requirement | Notes |
 |---|---|
 | **Go 1.24+** | To build from source |
 | **Windows 11 + PowerShell** | Primary supported platform |
-| **Neovim (`nvim`)** | Must be in `PATH` to edit files |
+| **Neovim (`nvim`)** | Must be in `PATH` to edit files with `e` |
+| **VS Code (`code`)** | Must be in `PATH` to open files with `v` |
 | **Windows Terminal (`wt`)** | Recommended — editor opens in a new tab |
 | **Git** | Required for the GitHub sync feature |
-| **JetBrains Nerd Font** (or any Nerd Font) | For folder icons in the terminal |
+| **JetBrains Nerd Font** (or any Nerd Font) | For folder icons (``) in the terminal |
 
 ---
 
@@ -114,40 +127,67 @@ After that, open any PowerShell window and type `clidocs`.
 
 ---
 
+## Usage
+
+```powershell
+# Open default snippets directory (~\clidocs_snippets)
+clidocs
+
+# Open the current working directory as snippets root
+clidocs .
+
+# Open a specific directory
+clidocs C:\Users\You\my-snippets
+clidocs .\docs\snippets
+```
+
+---
+
 ## Interface
 
 <div align="center">
-<img src="images/visualization.png" alt="clidocs interface" width="900">
+
+<!-- <img src="images/visualization.png" alt="clidocs interface" width="900"> -->
+> 📸 *Screenshot placeholder — add `images/visualization.png`*
+
 </div>
 
 ### Panel descriptions
 
 | Panel | Description |
 |---|---|
-| **Folders** | Categories for your snippets. Selected folder shown in blue with `>` arrow in orange. Folder icon `` shown next to each name. |
-| **Snippets** | Files inside the selected folder. Selected file shown in green with `>` cursor in orange. Extension badge colored by language. |
-| **Preview** | Syntax-highlighted content of the selected file. Scrollable. Header shows the file's extension badge and name. |
+| **Folders** | Categories for your snippets. Selected folder shown in blue with `>` arrow. Folders with subfolders show a `›` indicator. |
+| **Snippets** | Files inside the selected folder. Selected file shown in green. Extension badge colored by language. |
+| **Preview** | Syntax-highlighted content of the selected file. Shows full file path in orange. Scrollable. |
 
 ---
 
-## Navigation
+## Keyboard Shortcuts
 
-### Folders panel
+> Click each section to expand the shortcuts for that panel.
+
+<details>
+<summary><strong>🗂️ Folders Panel</strong></summary>
 
 | Key | Action |
 |---|---|
-| `↑` / `k` | Previous folder (virtual scroll — list slides automatically) |
+| `↑` / `k` | Previous folder |
 | `↓` / `j` | Next folder |
-| `Enter` | Open folder, move focus to Snippets |
+| `Enter` | Open folder → Snippets panel (or open subfolder navigator if folder has subfolders) |
 | `n` | Create new folder |
+| `R` | **Rename** selected folder |
+| `D` | **Delete** selected folder and all its contents (confirmation required) |
 | `f` | Favorite / unfavorite the selected folder |
-| `F` | Open **Favorites modal** — navigate and jump to a favorite folder |
-| `H` | Return to original snippets directory (shown when directory was changed) |
+| `F` | Open **Favorites modal** |
+| `H` | Return to original snippets directory |
 | `o` | Snippets directory info |
 | `Tab` / `→` | Next panel |
 | `q` / `Ctrl+C` | Quit |
 
-### Snippets panel
+</details>
+
+<details>
+<summary><strong>📄 Snippets Panel</strong></summary>
 
 | Key | Action |
 |---|---|
@@ -156,22 +196,28 @@ After that, open any PowerShell window and type `clidocs`.
 | `Enter` | Open selected file in Neovim |
 | `/` | **Inline search** — filter files by name |
 | `n` | Create new file |
+| `r` | **Rename** selected file |
 | `m` | Move file to another folder |
 | `c` | Import file from Windows file picker |
 | `d` | Delete selected file (with confirmation) |
-| `r` | Reload files and preview |
 | `Tab` | Next panel |
 
-#### Inline search mode (`/` in Snippets)
+</details>
+
+<details>
+<summary><strong>🔍 Snippets Inline Search Mode (<code>/</code> in Snippets)</strong></summary>
 
 | Key | Action |
 |---|---|
 | Type | Filter files in real-time (supports `*.go` glob) |
-| `↑` / `↓` | Navigate filtered results (preview updates live) |
-| `Enter` | Confirm selection, exit search — file stays selected |
+| `↑` / `↓` | Navigate filtered results — preview updates live |
+| `Enter` | Confirm selection, exit search |
 | `Esc` | Cancel search, restore full list |
 
-### Preview panel
+</details>
+
+<details>
+<summary><strong>👁️ Preview Panel</strong></summary>
 
 | Key | Action |
 |---|---|
@@ -180,10 +226,16 @@ After that, open any PowerShell window and type `clidocs`.
 | `L` | Toggle line numbers |
 | `/` | **Word search** in current file |
 | `c` | **Copy** entire file content to clipboard |
+| `e` | Open file in **Neovim** |
+| `v` | Open file in **VS Code** |
+| `o` | Open file's **folder in Explorer** |
 | `Tab` | Next panel |
 | `q` / `Ctrl+C` | Quit |
 
-#### Preview word search mode (`/` in Preview)
+</details>
+
+<details>
+<summary><strong>🔎 Preview Word Search Mode (<code>/</code> in Preview)</strong></summary>
 
 | Key | Action |
 |---|---|
@@ -193,7 +245,23 @@ After that, open any PowerShell window and type `clidocs`.
 | `N` | Jump to previous match |
 | `Esc` | Close search |
 
-### Global
+</details>
+
+<details>
+<summary><strong>📁 Subfolder Navigator Modal</strong></summary>
+
+| Key | Action |
+|---|---|
+| `↑` / `k` | Previous entry |
+| `↓` / `j` | Next entry |
+| `Enter` | Enter subdirectory / open file in Preview |
+| `Backspace` | Go up one level (or close modal if at root) |
+| `Esc` | Close modal |
+
+</details>
+
+<details>
+<summary><strong>🌐 Global Keys</strong></summary>
 
 | Key | Action |
 |---|---|
@@ -201,66 +269,65 @@ After that, open any PowerShell window and type `clidocs`.
 | `s` | Jump to Folders panel |
 | `g` | Sync to GitHub |
 | `G` | Edit GitHub config |
-| `o` | Snippets directory info |
-| `r` | Reload |
+| `o` | Snippets directory info (non-Preview panels) |
 | `q` / `Ctrl+C` | Quit |
 
-> **Note:** `f`, `F`, `H` only act when the **Folders** panel is active. `c` (copy to clipboard) only acts in **Preview**; `c` in Snippets opens the file importer.
+</details>
 
 ---
 
-## Snippets Management
-
-### Inline File Search
-
-1. Focus the **Snippets** panel
-2. Press `/` — the title bar changes to a search input `/ query█`
-3. Type to filter: matches update instantly
-   - `docker` → any filename containing *docker*
-   - `*.go` → all Go files (glob)
-   - `main.go` → exact match
-4. Use `↑`/`↓` to navigate — **preview updates live** as you move
-5. Press `Enter` to confirm selection (stays on that file, no editor opens)
-6. Press `Esc` to cancel and restore the full list
-
-<div align="center">
-<img src="images/search-filter-snippets.png" alt="Inline file search" width="750">
-</div>
-
-### Preview Word Search
-
-1. Focus the **Preview** panel
-2. Press `/` — a search bar appears below the file title
-3. Type the word or phrase you want to find
-4. Press `Enter` — all matching lines are highlighted:
-   - **Orange `▶`** — current hit (focused match)
-   - **Green `•`** — other matches
-5. Press `n` / `N` to cycle forward/backward through hits
-6. The view auto-scrolls to keep the current hit visible
-7. Press `Esc` to close the search bar
-
-<div align="center">
-<img src="images/search-word-visualization.png" alt="Preview word search" width="750">
-</div>
-
-### Line Numbers
-
-Press `L` while the Preview panel is active to toggle line numbers on/off.
-When line numbers are enabled, matched lines show their number in orange (current) or green (other hits).
-
-<div align="center">
-<img src="images/Show_Line_Numbers.png" alt="Line numbers" width="750">
-</div>
+## Folder Management
 
 ### Create a folder
 
 1. Focus the **Folders** panel
-2. Press `n`
-3. Type the folder name → `Enter` to confirm, `Esc` to cancel
+2. Press `n` → type the folder name → `Enter` to confirm, `Esc` to cancel
 
-<div align="center">
-<img src="images/create-new-folder.png" alt="Create folder" width="750">
-</div>
+<!-- <img src="images/create-new-folder.png" alt="Create folder" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/create-new-folder.png`*
+
+### Rename a folder
+
+1. Focus the **Folders** panel and navigate to the folder
+2. Press `R` — a modal appears with the current name pre-filled
+3. Edit the name → `Enter` to confirm, `Esc` to cancel
+4. Favorites referencing the folder are updated automatically
+
+<!-- <img src="images/rename-folder.png" alt="Rename folder" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/rename-folder.png`*
+
+### Delete a folder
+
+1. Focus the **Folders** panel and navigate to the folder
+2. Press `D` — a confirmation modal appears
+3. Press `Enter` or `y` to delete, `Esc` or `n` to cancel
+
+> **Warning:** Deletion is permanent and recursive — all files and subfolders inside are removed from disk.
+
+<!-- <img src="images/delete-folder.png" alt="Delete folder" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/delete-folder.png`*
+
+---
+
+## Subfolder Navigation
+
+Folders that contain subfolders display a `›` indicator next to their name.
+
+1. Navigate to a folder with the `›` marker
+2. Press `Enter` — the **Browse Folder** modal opens
+3. A breadcrumb shows the current path (e.g. `/projects/backend`)
+4. Use `↑↓` to navigate entries — directories and files are listed together
+5. Press `Enter` on a **subdirectory** to descend into it
+6. Press `Enter` on a **file** to load it directly in the Preview panel
+7. Press `Backspace` to go up one level (or close the modal when at the root)
+8. Press `Esc` to close at any time
+
+<!-- <img src="images/subfolder-nav.png" alt="Subfolder navigation" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/subfolder-nav.png`*
+
+---
+
+## Snippets Management
 
 ### Create a file
 
@@ -269,33 +336,97 @@ When line numbers are enabled, matched lines show their number in orange (curren
 3. **Step 1** — Enter the file name (without extension) → `Enter` or `Tab`
 4. **Step 2** — Enter the extension (e.g. `go`, `py`, `md`) → `Enter` to create and open
 
-<div align="center">
-<img src="images/create-new-file.png" alt="Create file" width="750">
-</div>
+<!-- <img src="images/create-new-file.png" alt="Create file" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/create-new-file.png`*
+
+### Rename a snippet
+
+1. Focus the **Snippets** panel and navigate to the file
+2. Press `r` — a modal appears with the current filename pre-filled
+3. Edit the name → `Enter` to confirm, `Esc` to cancel
+
+<!-- <img src="images/rename-file.png" alt="Rename file" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/rename-file.png`*
 
 ### Delete a file
 
 1. Focus the **Snippets** panel and navigate to the file
-2. Press `d`
-3. A confirmation modal shows the filename — press `Enter` or `y` to delete, `Esc` or `n` to cancel
-4. On deletion, the file list reloads and a status message appears for 3 seconds
+2. Press `d` — a confirmation modal shows the filename
+3. Press `Enter` or `y` to delete, `Esc` or `n` to cancel
 
-> **Warning:** Deletion is permanent — the file is removed from disk immediately.
+> **Warning:** Deletion is permanent.
 
-<div align="center">
-<img src="images/delete-file.png" alt="Delete file" width="750">
-</div>
+<!-- <img src="images/delete-file.png" alt="Delete file" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/delete-file.png`*
 
 ### Move a file to another folder
 
 1. Focus the **Snippets** panel and navigate to the file
 2. Press `m` (requires at least 2 folders)
-3. A modal opens listing all other folders — navigate with `↑↓`
-4. Press `Enter` to move the file; the list reloads automatically
+3. A modal lists all other folders — navigate with `↑↓`
+4. Press `Enter` to move the file
 
-<div align="center">
-<img src="images/move-file.png" alt="Move file" width="750">
-</div>
+<!-- <img src="images/move-file.png" alt="Move file" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/move-file.png`*
+
+### Inline File Search
+
+1. Focus the **Snippets** panel
+2. Press `/` — the title bar changes to a search input `/ query█`
+3. Type to filter — matches update instantly (`*.go`, `docker`, `main.go`)
+4. Use `↑`/`↓` to navigate filtered results — **preview updates live**
+5. Press `Enter` to confirm selection, `Esc` to cancel
+
+<!-- <img src="images/search-filter-snippets.png" alt="Inline file search" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/search-filter-snippets.png`*
+
+---
+
+## Preview Panel
+
+The Preview panel shows the syntax-highlighted content of the selected file with additional information and actions.
+
+### File path indicator
+
+When a file is loaded — either from the Snippets panel or via the Subfolder Navigator — the **full absolute path** is displayed in orange below the file title:
+
+```
+ go  main.go
+───────────────────────────────────────────
+ C:\Users\You\clidocs_snippets\Go\main.go
+```
+
+### Open actions
+
+| Key | Action |
+|---|---|
+| `e` | Open file in **Neovim** (new Windows Terminal window) |
+| `v` | Open file in **VS Code** (`code <path>`) |
+| `o` | Open the file's **containing folder** in Windows Explorer |
+
+### Word Search
+
+1. Press `/` — a search bar appears below the file title
+2. Type the word or phrase you want to find
+3. Press `Enter` — all matching lines are highlighted:
+   - **Orange `▶`** — current hit
+   - **Green `•`** — other matches
+4. Press `n` / `N` to cycle through hits
+5. Press `Esc` to close
+
+<!-- <img src="images/search-word-visualization.png" alt="Preview word search" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/search-word-visualization.png`*
+
+### Line Numbers
+
+Press `L` to toggle line numbers. When active, matched search lines show their number in orange (current) or green (other hits).
+
+<!-- <img src="images/Show_Line_Numbers.png" alt="Line numbers" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/Show_Line_Numbers.png`*
+
+### Copy to clipboard
+
+Press `c` in the Preview panel to copy the entire file content to the system clipboard. A green status message confirms the action.
 
 ---
 
@@ -306,89 +437,51 @@ Favorites let you bookmark frequently-used folders and jump to them instantly.
 ### Marking a favorite
 
 1. Focus the **Folders** panel and select any folder
-2. Press `f` — a green status message confirms *"★ FolderName added to favorites"*
-3. The folder name gets a `★` indicator in the list
-4. Press `f` again on the same folder to unfavorite it
+2. Press `f` — the folder gets a `★` indicator; a green status message confirms
+3. Press `f` again to unfavorite
 
-> Favorites are saved automatically to `.clidocs_favorites.json` inside the snippets directory and persist across sessions.
+> Favorites are saved to `.clidocs_favorites.json` inside the snippets directory and persist across sessions.
 
-<div align="center">
-
-<!-- TODO: add screenshot -->
 <!-- <img src="images/folder-favorites.png" alt="Folder favorites" width="750"> -->
-
-</div>
+> 📸 *Screenshot placeholder — add `images/folder-favorites.png`*
 
 ### Navigating favorites
 
 1. Press `F` (uppercase) in the **Folders** panel to open the **Favorites modal**
-2. Use `↑`/`↓` to navigate between saved folders
-3. Press `Enter` to jump directly to that folder — the modal closes and the cursor lands on the selected folder
-4. Press `f` inside the modal to unfavorite the selected entry
-5. Press `Esc` or `F` to close without navigating
+2. Use `↑`/`↓` to navigate → `Enter` to jump to that folder
+3. Press `f` inside the modal to unfavorite the selected entry
+4. Press `Esc` or `F` to close
 
-<div align="center">
-
-<!-- TODO: add screenshot -->
 <!-- <img src="images/favorites-modal.png" alt="Favorites modal" width="750"> -->
-
-</div>
+> 📸 *Screenshot placeholder — add `images/favorites-modal.png`*
 
 ### Returning to the home directory
 
-If you changed the snippets directory via `o → s`, the Folders panel title shows **`H:home`**.
+If you changed the snippets directory, the Folders panel title shows **`H:home`**.  
 Press `H` to instantly return to the original snippets directory.
-
----
-
-## Copy to Clipboard
-
-While the **Preview** panel is active, press `c` to copy the entire content of the displayed file to the system clipboard.
-
-- A **green status message** appears at the bottom confirming the copy
-- The message disappears automatically after a few seconds
-- You can then paste the content anywhere with `Ctrl+V`
-
-<div align="center">
-
-<!-- TODO: add screenshot -->
-<!-- <img src="images/copy-to-clipboard.png" alt="Copy to clipboard" width="750"> -->
-
-</div>
 
 ---
 
 ## Snippets Directory
 
-Press `o` from any panel to open the directory info modal:
-
-```
- Snippets Directory
-
-C:\Users\You\clidocs_snippets
-────────────────────────────────────────────
-Enter: open in Explorer   s: change directory   Esc: close
-```
+Press `o` (on Folders or Snippets panel) to open the directory info modal.
 
 | Action | Description |
 |---|---|
 | `Enter` | Opens the snippets folder in Windows Explorer |
-| `s` | Opens a native folder picker to choose a new snippets directory |
+| `s` | Opens a modern **Windows Explorer-style folder picker** to choose a new directory |
 | `Esc` | Closes the modal |
 
-> Changing the directory takes effect immediately — clidocs reloads with the new root. The original default directory (`%USERPROFILE%\clidocs_snippets`) is not deleted.
+> Changing the directory takes effect immediately. The original default directory (`%USERPROFILE%\clidocs_snippets`) is never deleted.
 
-<div align="center">
-<img src="images/snippet-directory.png" alt="Snippets directory" width="750">
-</div>
+<!-- <img src="images/snippet-directory.png" alt="Snippets directory" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/snippet-directory.png`*
 
 ---
 
 ## Neovim Integration
 
-[![Neovim](https://img.shields.io/badge/Opens%20in-New%20Windows%20Terminal%20Tab-0078d4?style=flat-square&logo=windowsterminal)](.)
-
-When you press `Enter` on a file, clidocs shows a confirmation modal then opens a **new Windows Terminal window** with Neovim:
+When you press `Enter` on a file in the Snippets panel (or `e` in the Preview panel), clidocs opens **Neovim in a new Windows Terminal window**:
 
 ```
  Open in Neovim
@@ -405,17 +498,14 @@ When you press `Enter` on a file, clidocs shows a confirmation modal then opens 
 Enter: open editor  Esc: cancel
 ```
 
-> **Fallback:** If Windows Terminal (`wt`) is not available, Neovim takes over the current terminal and returns to clidocs on exit.
+> **Fallback:** If Windows Terminal (`wt`) is not available, Neovim takes over the current terminal.
 
-<div align="center">
-<img src="images/open-in-neovim.png" alt="Open in Neovim" width="750">
-</div>
+<!-- <img src="images/open-in-neovim.png" alt="Open in Neovim" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/open-in-neovim.png`*
 
 ---
 
 ## File Import
-
-[![Import](https://img.shields.io/badge/Uses-Windows%20File%20Picker-0078d4?style=flat-square&logo=windows)](.)
 
 Copy any file from your computer into the currently selected folder:
 
@@ -423,25 +513,21 @@ Copy any file from your computer into the currently selected folder:
 2. Press `c`
 3. A native Windows **Open File dialog** appears
 4. Select one or more files → click Open
-5. Files are copied into the current folder; the list reloads automatically
 
-> Supports **multi-selection** — hold `Ctrl` or `Shift` in the dialog to select multiple files.
+> Supports **multi-selection** — hold `Ctrl` or `Shift` in the dialog.
 
-<div align="center">
-<img src="images/import-file.png" alt="Import file" width="750">
-</div>
+<!-- <img src="images/import-file.png" alt="Import file" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/import-file.png`*
 
 ---
 
 ## GitHub Sync
 
-[![GitHub](https://img.shields.io/badge/Sync%20to-GitHub-181717?style=flat-square&logo=github)](.)
-
 Back up and share your snippets by syncing to a GitHub repository.
 
 ### First use
 
-Press `g` — a setup modal appears asking for:
+Press `g` — a setup modal appears:
 
 | Field | Example |
 |---|---|
@@ -449,36 +535,26 @@ Press `g` — a setup modal appears asking for:
 | **Username** | `your-github-username` |
 | **Email** | `you@example.com` |
 
-Navigate fields with `Enter` or `Tab` / `Shift+Tab`. On confirm, the config is saved to `clidocs_snippets/.clidocs_git.json` and an initial sync runs.
+Navigate fields with `Enter` or `Tab` / `Shift+Tab`. Config is saved to `.clidocs_git.json`.
 
 ### How sync works
 
 1. `git init` (first time only)
-2. Checks if the remote already has commits → pulls first to avoid conflicts
+2. Pulls remote changes first to avoid conflicts
 3. `git add -A` → `git commit` → `git push -u origin main`
-4. Shows a success or error modal with the result
+4. Shows a success or error modal
 
 ### Change configuration
 
-Press `G` to open the configuration modal at any time and update the repo URL, username, or email.
+Press `G` at any time to update the repo URL, username, or email.
 
-<div align="center">
-<img src="images/sync-configuration.png" alt="Git configuration" width="750">
-</div>
-
-### Git indicator
-
-When connected, the header shows `  <username>` confirming the active GitHub configuration.
+<!-- <img src="images/sync-configuration.png" alt="Git configuration" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/sync-configuration.png`*
 
 > **Note:** The repository must exist on GitHub before syncing. For private repos, ensure credentials are cached via [Git Credential Manager](https://github.com/git-ecosystem/git-credential-manager) or SSH.
 
-<div align="center">
-<img src="images/sync-image1.png" alt="GitHub sync" width="750">
-</div>
-
-<div align="center">
-<img src="images/sync-image2.png" alt="GitHub sync result" width="750">
-</div>
+<!-- <img src="images/sync-image1.png" alt="GitHub sync" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/sync-image1.png`*
 
 ---
 
@@ -530,9 +606,9 @@ Syntax highlighting uses **Chroma** with the **GitHub Dark** theme. Each file sh
 
 | File | Description |
 |---|---|
-| `main.go` | Entry point — creates snippets dir and starts Bubbletea |
-| `dirs.go` | Resolves `%USERPROFILE%\clidocs_snippets` path |
-| `model.go` | App state struct, folder/file loading, message types |
+| `main.go` | Entry point — parses CLI args, creates snippets dir, starts Bubbletea |
+| `dirs.go` | Resolves `%USERPROFILE%\clidocs_snippets` default path |
+| `model.go` | App state struct, folder/file/subfolder loading, message types |
 | `update.go` | All keyboard handling, modal state machine, editor/sync launch |
 | `view.go` | Three-panel layout, modal overlays, status bar renderer |
 | `styles.go` | All Lipgloss styles — GitHub Dark color palette |
@@ -540,15 +616,11 @@ Syntax highlighting uses **Chroma** with the **GitHub Dark** theme. Each file sh
 | `highlight.go` | Chroma syntax highlighting engine |
 | `gitconfig.go` | Load/save `.clidocs_git.json` configuration |
 | `gitsync.go` | Git CLI operations (init, pull, add, commit, push) |
-| `filecopy.go` | Windows file picker via PowerShell + file copy logic |
+| `filecopy.go` | Modern Windows folder/file picker via PowerShell COM + file copy logic |
 
 ---
 
 ## Dependencies
-
-[![bubbletea](https://img.shields.io/badge/charmbracelet%2Fbubbletea-TUI%20framework-ff69b4?style=flat-square)](https://github.com/charmbracelet/bubbletea)
-[![lipgloss](https://img.shields.io/badge/charmbracelet%2flipgloss-Styling-ff69b4?style=flat-square)](https://github.com/charmbracelet/lipgloss)
-[![chroma](https://img.shields.io/badge/alecthomas%2Fchroma-Syntax%20highlight-orange?style=flat-square)](https://github.com/alecthomas/chroma)
 
 | Package | Purpose |
 |---|---|
@@ -556,6 +628,7 @@ Syntax highlighting uses **Chroma** with the **GitHub Dark** theme. Each file sh
 | `github.com/charmbracelet/bubbles` | Text input component |
 | `github.com/charmbracelet/lipgloss` | Layout and styling |
 | `github.com/alecthomas/chroma/v2` | Syntax highlighting |
+| `github.com/atotto/clipboard` | Clipboard write support |
 
 ---
 

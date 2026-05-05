@@ -251,10 +251,17 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case panelFolders:
 			folderName := m.currentFolderName()
 			if folderName != "" {
-				m.activePanel = panelFiles
-				m.fileCursor = 0
-				m.loadFiles()
-				m.loadPreview()
+				if m.hasSubfolders(folderName) {
+					m.subNavStack = []string{folderName}
+					m.subNavCursor = 0
+					m.loadSubNavEntries()
+					m.modal = modalSubfolderNav
+				} else {
+					m.activePanel = panelFiles
+					m.fileCursor = 0
+					m.loadFiles()
+					m.loadPreview()
+				}
 			}
 		case panelFiles:
 			if len(m.files) > 0 {
@@ -347,10 +354,6 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.modal = modalMoveFile
 		}
 
-	case "o":
-		// show current snippets dir info
-		m.modal = modalDirInfo
-
 	case "c":
 		switch m.activePanel {
 		case panelFiles:
@@ -372,6 +375,31 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+	case "e":
+		// open current preview file in Neovim
+		if m.previewFilePath != "" {
+			return m, openNeovim(m.previewFilePath)
+		}
+
+	case "v":
+		// open current preview file in VS Code
+		if m.previewFilePath != "" {
+			_ = exec.Command("code", m.previewFilePath).Start()
+			m.statusMsg = "Opened in VS Code"
+			m.statusIsSuccess = true
+			return m, clearStatusAfter(3 * time.Second)
+		}
+
+	case "o":
+		if m.activePanel == panelPreview && m.previewFilePath != "" {
+			// open file location in Explorer
+			dir := filepath.Dir(m.previewFilePath)
+			_ = exec.Command("explorer.exe", filepath.FromSlash(dir)).Start()
+		} else {
+			// show current snippets dir info (original behaviour on other panels)
+			m.modal = modalDirInfo
+		}
+
 	case "L":
 		m.previewLineNumbers = !m.previewLineNumbers
 
@@ -391,10 +419,30 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+	case "R":
+		if m.activePanel == panelFolders && len(m.folders) > 0 {
+			m.modal = modalRenameFolder
+			m.modalInput.SetValue(m.currentFolderName())
+			m.modalInput.Focus()
+			m.modalInput.Placeholder = "New folder name..."
+		}
+
+	case "D":
+		if m.activePanel == panelFolders && len(m.folders) > 0 {
+			m.modal = modalDeleteFolder
+		}
+
 	case "r":
-		m.loadFiles()
-		m.loadPreview()
-		m.statusMsg = ""
+		if m.activePanel == panelFiles && len(m.files) > 0 {
+			m.modal = modalRenameFile
+			m.modalInput.SetValue(m.currentFileName())
+			m.modalInput.Focus()
+			m.modalInput.Placeholder = "New file name..."
+		} else {
+			m.loadFiles()
+			m.loadPreview()
+			m.statusMsg = ""
+		}
 
 	case "?":
 		m.statusMsg = "Tab/→←: panel | ↑↓: nav | Enter: edit | n: new | r: reload | g: sync | G: git config | q: quit"
@@ -516,6 +564,11 @@ func (m *model) openGitConfigModal() {
 
 func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+
+	// ctrl+c always quits regardless of which modal is open
+	if msg.String() == "ctrl+c" {
+		return m, tea.Quit
+	}
 
 	switch m.modal {
 	case modalError:
@@ -722,6 +775,167 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		default:
 			m.modalInput, cmd = m.modalInput.Update(msg)
 		}
+
+	case modalRenameFolder:
+		switch msg.String() {
+		case "esc":
+			m.modal = modalNone
+		case "enter":
+			newName := strings.TrimSpace(m.modalInput.Value())
+			oldName := m.currentFolderName()
+			if newName == "" || newName == oldName {
+				m.modal = modalNone
+				return m, nil
+			}
+			oldPath := filepath.Join(m.snippetsDir, oldName)
+			newPath := filepath.Join(m.snippetsDir, newName)
+			if err := os.Rename(oldPath, newPath); err != nil {
+				m.modal = modalError
+				m.modalError = fmt.Sprintf("Could not rename folder: %v", err)
+				return m, nil
+			}
+			// update favorites if needed
+			for i, f := range m.favorites {
+				if f == oldName {
+					m.favorites[i] = newName
+					m.saveFavorites()
+					break
+				}
+			}
+			m.modal = modalNone
+			m.loadFolders()
+			for i, f := range m.folders {
+				if f == newName {
+					m.folderCursor = i
+					break
+				}
+			}
+			m.loadFiles()
+			m.loadPreview()
+			m.statusMsg = "Folder renamed to " + newName
+			m.statusIsSuccess = true
+			return m, clearStatusAfter(3 * time.Second)
+		default:
+			var cmd tea.Cmd
+			m.modalInput, cmd = m.modalInput.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
+	case modalDeleteFolder:
+		switch msg.String() {
+		case "enter", "y":
+			name := m.currentFolderName()
+			if name == "" {
+				m.modal = modalNone
+				return m, nil
+			}
+			path := filepath.Join(m.snippetsDir, name)
+			if err := os.RemoveAll(path); err != nil {
+				m.modal = modalError
+				m.modalError = fmt.Sprintf("Could not delete folder: %v", err)
+				return m, nil
+			}
+			// remove from favorites
+			for i, f := range m.favorites {
+				if f == name {
+					m.favorites = append(m.favorites[:i], m.favorites[i+1:]...)
+					m.saveFavorites()
+					break
+				}
+			}
+			m.modal = modalNone
+			m.loadFolders()
+			m.loadFiles()
+			m.loadPreview()
+			m.statusMsg = "Folder \"" + name + "\" deleted."
+			m.statusIsSuccess = true
+			return m, clearStatusAfter(3 * time.Second)
+		case "esc", "n", "q":
+			m.modal = modalNone
+		}
+		return m, nil
+
+	case modalRenameFile:
+		switch msg.String() {
+		case "esc":
+			m.modal = modalNone
+		case "enter":
+			newName := strings.TrimSpace(m.modalInput.Value())
+			oldName := m.currentFileName()
+			folderName := m.currentFolderName()
+			if newName == "" || newName == oldName {
+				m.modal = modalNone
+				return m, nil
+			}
+			oldPath := filepath.Join(m.snippetsDir, folderName, oldName)
+			newPath := filepath.Join(m.snippetsDir, folderName, newName)
+			if err := os.Rename(oldPath, newPath); err != nil {
+				m.modal = modalError
+				m.modalError = fmt.Sprintf("Could not rename file: %v", err)
+				return m, nil
+			}
+			m.modal = modalNone
+			m.loadFiles()
+			for i, f := range m.files {
+				if f.name == newName {
+					m.fileCursor = i
+					break
+				}
+			}
+			m.loadPreview()
+			m.statusMsg = "Snippet renamed to " + newName
+			m.statusIsSuccess = true
+			return m, clearStatusAfter(3 * time.Second)
+		default:
+			var cmd tea.Cmd
+			m.modalInput, cmd = m.modalInput.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
+	case modalSubfolderNav:
+		switch msg.String() {
+		case "esc", "q":
+			m.modal = modalNone
+		case "up", "k":
+			if m.subNavCursor > 0 {
+				m.subNavCursor--
+			}
+		case "down", "j":
+			if m.subNavCursor < len(m.subNavEntries)-1 {
+				m.subNavCursor++
+			}
+		case "backspace":
+			if len(m.subNavStack) > 1 {
+				// pop one level
+				m.subNavStack = m.subNavStack[:len(m.subNavStack)-1]
+				m.subNavCursor = 0
+				m.loadSubNavEntries()
+			} else {
+				// already at root folder — close modal
+				m.modal = modalNone
+			}
+		case "enter":
+			if m.subNavCursor >= len(m.subNavEntries) {
+				break
+			}
+			e := m.subNavEntries[m.subNavCursor]
+			if e.isDir {
+				// navigate into subfolder
+				m.subNavStack = append(m.subNavStack, e.name)
+				m.subNavCursor = 0
+				m.loadSubNavEntries()
+			} else {
+				// load file into preview and close modal
+				rel := strings.Join(m.subNavStack, string(filepath.Separator))
+				path := filepath.Join(m.snippetsDir, rel, e.name)
+				m.modal = modalNone
+				m.activePanel = panelPreview
+				m.loadPreviewFromPath(path)
+			}
+		}
+		return m, nil
 
 	case modalFavorites:
 		switch msg.String() {

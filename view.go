@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -151,17 +152,23 @@ func (m model) renderFoldersPanel(w, h int) string {
 			if isFav {
 				favMark = " " + starIcon
 			}
+			subMark := ""
+			if m.hasSubfolders(name) {
+				subMark = mutedStyle.Render(" ›")
+			}
 			isSelected := !m.inFavSection && idx == m.folderCursor
 			var rowStr string
 			if isSelected {
 				rowStr = arrowStyle.Render("> ") +
 					lipgloss.NewStyle().Foreground(colorAccentBlue).Render(folderIcon) +
 					lipgloss.NewStyle().Foreground(colorAccentBlue).Render(label) +
+					subMark +
 					favMark
 			} else {
 				rowStr = "   " +
 					mutedStyle.Render(folderIcon) +
 					lipgloss.NewStyle().Foreground(colorFg).Render(label) +
+					subMark +
 					favMark
 			}
 			lines = append(lines, rowStr)
@@ -288,19 +295,28 @@ func (m model) renderFilesPanel(w, h int) string {
 func (m model) renderPreviewPanel(w, h int) string {
 	isActive := m.activePanel == panelPreview
 
-	// reserve: title(1) + sep(1) + optional search bar(1)
+	// Determine the file name to display from previewFilePath (covers subNav) or currentFileName
+	displayName := m.currentFileName()
+	if m.previewFilePath != "" {
+		displayName = filepath.Base(m.previewFilePath)
+	}
+
+	// reserve: title(1) + sep(1) + path line when path is known(1) + optional search bar(1)
 	headerLines := 2
-	if m.previewSearchActive {
+	showPath := m.previewFilePath != ""
+	if showPath {
 		headerLines = 3
+	}
+	if m.previewSearchActive {
+		headerLines++
 	}
 	availH := h - 2 - headerLines // h-2 for panel border
 
-	fileName := m.currentFileName()
 	var panelTitle string
-	if fileName != "" {
-		ext, extColor := getFileIcon(fileName)
+	if displayName != "" {
+		ext, extColor := getFileIcon(displayName)
 		badge := lipgloss.NewStyle().Foreground(extColor).Render(ext)
-		name := lipgloss.NewStyle().Foreground(colorFg).Bold(true).Render(fileName)
+		name := lipgloss.NewStyle().Foreground(colorFg).Bold(true).Render(displayName)
 		// line numbers indicator
 		lnTag := ""
 		if m.previewLineNumbers {
@@ -314,6 +330,11 @@ func (m model) renderPreviewPanel(w, h int) string {
 	var contentLines []string
 	contentLines = append(contentLines, panelTitle)
 	contentLines = append(contentLines, mutedStyle.Render(strings.Repeat("─", w-4)))
+	if showPath {
+		pathStr := truncate(m.previewFilePath, w-6)
+		contentLines = append(contentLines,
+			" "+lipgloss.NewStyle().Foreground(colorOrange).Render(pathStr))
+	}
 
 	// search bar
 	if m.previewSearchActive {
@@ -624,11 +645,11 @@ func (m model) renderStatusBar() string {
 	} else {
 		switch m.activePanel {
 		case panelFolders:
-			help = "↑↓: folders  Enter: open  n: new  f: favorite  F: go to favorites  H: home dir  o: dir info  g: sync  Tab: next panel  q: quit"
+			help = "↑↓: folders  Enter: open  n: new  R: rename  D: delete  f: fav  F: favorites  H: home  o: dir info  g: sync  Tab: next panel  q: quit"
 		case panelFiles:
-			help = "↑↓: files  Enter: edit  /: search  n: new  m: move  c: import  d: delete  r: reload  g: sync  G: git config  Tab: next panel"
+			help = "↑↓: files  Enter: edit  /: search  n: new  r: rename  m: move  c: import  d: delete  g: sync  G: git config  Tab: next panel"
 		case panelPreview:
-			help = "↑↓: scroll  /: find word  L: line numbers  c: copy content  g: sync  G: git config  Tab: next panel  q: quit"
+			help = "↑↓: scroll  /: find  L: line numbers  c: copy  e: nvim  v: vscode  o: open folder  g: sync  Tab: next panel  q: quit"
 		}
 	}
 	return lipgloss.NewStyle().
@@ -672,6 +693,14 @@ func (m model) renderWithModal() string {
 		modal = m.renderChangeDirPickerModal()
 	case modalFavorites:
 		modal = m.renderFavoritesModal()
+	case modalRenameFolder:
+		modal = m.renderRenameFolderModal()
+	case modalDeleteFolder:
+		modal = m.renderDeleteFolderModal()
+	case modalRenameFile:
+		modal = m.renderRenameFileModal()
+	case modalSubfolderNav:
+		modal = m.renderSubfolderNavModal()
 	}
 
 	return overlayModal(base, modal, m.width, m.height)
@@ -814,6 +843,113 @@ func overlayModal(base, modal string, width, height int) string {
 	}
 
 	return strings.Join(baseLines, "\n")
+}
+
+func (m model) renderRenameFolderModal() string {
+	old := m.currentFolderName()
+	title := modalTitleStyle.Render(" Rename Folder")
+	current := mutedStyle.Render("Current: ") + lipgloss.NewStyle().Foreground(colorAccentBlue).Render(old)
+	inputRendered := inputStyle.Width(42).Render(m.modalInput.View())
+	help := helpStyle.Render("Enter: confirm  Esc: cancel")
+	return modalStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left,
+			title,
+			"",
+			current,
+			"",
+			inputRendered,
+			help,
+		),
+	)
+}
+
+func (m model) renderDeleteFolderModal() string {
+	name := m.currentFolderName()
+	title := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7b72")).Bold(true).Render(" Delete Folder")
+	sep := mutedStyle.Render(strings.Repeat("─", 44))
+	warn := lipgloss.NewStyle().Foreground(colorFg).Render("Delete folder and ALL its contents?")
+	nameStr := lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render("  " + name)
+	alert := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7b72")).Render("This cannot be undone.")
+	help := helpStyle.Render("Enter / y: delete    Esc / n: cancel")
+	return modalStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left,
+			title, "", warn, nameStr, "", alert, sep, help,
+		),
+	)
+}
+
+func (m model) renderRenameFileModal() string {
+	name := m.currentFileName()
+	title := modalTitleStyle.Render(" Rename Snippet")
+	current := mutedStyle.Render("Current: ") + lipgloss.NewStyle().Foreground(colorGreen).Render(name)
+	inputRendered := inputStyle.Width(42).Render(m.modalInput.View())
+	help := helpStyle.Render("Enter: confirm  Esc: cancel")
+	return modalStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left,
+			title,
+			"",
+			current,
+			"",
+			inputRendered,
+			help,
+		),
+	)
+}
+
+func (m model) renderSubfolderNavModal() string {
+	// build breadcrumb path
+	crumb := "/"
+	if len(m.subNavStack) > 0 {
+		crumb = "/" + strings.Join(m.subNavStack, "/")
+	}
+	title := modalTitleStyle.Render(" Browse Folder")
+	breadcrumb := mutedStyle.Render(crumb)
+	sep := mutedStyle.Render(strings.Repeat("─", 44))
+
+	var rows []string
+	rows = append(rows, title, breadcrumb, sep)
+
+	if len(m.subNavEntries) == 0 {
+		rows = append(rows, mutedStyle.Render("(empty)"))
+	} else {
+		for i, e := range m.subNavEntries {
+			var icon string
+			if e.isDir {
+				icon = "󰉋 "
+			} else {
+				ext, extColor := getFileIcon(e.name)
+				icon = lipgloss.NewStyle().Foreground(extColor).Render(ext) + " "
+			}
+			label := truncate(e.name, 36)
+			if i == m.subNavCursor {
+				arrow := arrowStyle.Render("> ")
+				if e.isDir {
+					rows = append(rows, arrow+
+						lipgloss.NewStyle().Foreground(colorAccentBlue).Render(icon)+
+						lipgloss.NewStyle().Foreground(colorAccentBlue).Render(label))
+				} else {
+					rows = append(rows, arrow+icon+
+						lipgloss.NewStyle().Foreground(colorGreen).Render(label))
+				}
+			} else {
+				if e.isDir {
+					rows = append(rows, "   "+mutedStyle.Render(icon)+
+						lipgloss.NewStyle().Foreground(colorFg).Render(label))
+				} else {
+					rows = append(rows, "   "+icon+
+						mutedStyle.Render(label))
+				}
+			}
+		}
+	}
+
+	backLabel := "Backspace: up"
+	if len(m.subNavStack) <= 1 {
+		backLabel = "Backspace: close"
+	}
+	rows = append(rows, sep,
+		helpStyle.Render("↑↓: navigate  Enter: open  "+backLabel+"  Esc: close"))
+	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
 }
 
 func truncate(s string, max int) string {
