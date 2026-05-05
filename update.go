@@ -31,6 +31,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		// ~35% of width for preview panel inner content, minimum 40
+		pw := (msg.Width * 35 / 100) - 4
+		if pw < 40 {
+			pw = 40
+		}
+		m.previewWidth = pw
+		// re-render markdown with new width if a .md file is open
+		if m.previewIsMarkdown && m.previewContent != "" {
+			m.previewHighlight = renderMarkdown(m.previewContent, pw)
+		}
 		return m, nil
 
 	case openEditorMsg:
@@ -165,6 +175,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.modal != modalNone {
 			return m.handleModalKey(msg)
 		}
+		if m.folderSearchActive {
+			return m.handleFolderSearchKey(msg)
+		}
 		if m.searchActive {
 			return m.handleSearchKey(msg)
 		}
@@ -192,7 +205,25 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.activePanel = panelFolders
 		}
 
-	case "left", "h":
+	case "left":
+		if m.activePanel == panelFolders {
+			// go back to parent dir if we navigated into a subfolder
+			if len(m.folderDirStack) > 0 {
+				m.snippetsDir = m.folderDirStack[len(m.folderDirStack)-1]
+				m.folderDirStack = m.folderDirStack[:len(m.folderDirStack)-1]
+				m.folderCursor = 0
+				m.fileCursor = 0
+				m.loadFolders()
+				m.loadFiles()
+				m.loadPreview()
+			} else if m.activePanel > panelFolders {
+				m.activePanel--
+			}
+		} else {
+			m.activePanel--
+		}
+
+	case "h":
 		if m.activePanel > panelFolders {
 			m.activePanel--
 		}
@@ -270,12 +301,19 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+
 	case "n":
 		switch m.activePanel {
 		case panelFolders:
 			m.openModal(modalNewFolder)
 		case panelFiles:
 			m.openModal(modalNewFile)
+		}
+
+	case "N":
+		// create a new subfolder inside the currently selected folder
+		if m.activePanel == panelFolders && len(m.folders) > 0 {
+			m.openModal(modalNewSubfolder)
 		}
 
 	case "f":
@@ -405,6 +443,10 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "/":
 		switch m.activePanel {
+		case panelFolders:
+			m.folderSearchActive = true
+			m.folderSearchQuery = ""
+			m.folderCursor = 0
 		case panelFiles:
 			m.searchActive = true
 			m.searchQuery = ""
@@ -443,6 +485,12 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.loadPreview()
 			m.statusMsg = ""
 		}
+
+	case ":":
+		// easter egg: open command console
+		m.consoleInput = ""
+		m.consoleOutput = ""
+		m.modal = modalConsole
 
 	case "?":
 		m.statusMsg = "Tab/→←: panel | ↑↓: nav | Enter: edit | n: new | r: reload | g: sync | G: git config | q: quit"
@@ -531,6 +579,8 @@ func (m *model) openModal(kind modalKind) {
 	case modalNewFile:
 		m.modalInput.Placeholder = "File name (without extension)..."
 		m.modalInput2.Placeholder = "Extension (e.g. go, py, md)..."
+	case modalNewSubfolder:
+		m.modalInput.Placeholder = "Subfolder name..."
 	}
 }
 
@@ -667,6 +717,115 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return launchEditorMsg{path: path} }
 		case "esc", "q":
 			m.modal = modalNone
+		}
+		return m, nil
+
+	case modalNewSubfolder:
+		switch msg.String() {
+		case "esc":
+			m.modal = modalNone
+		case "enter":
+			name := strings.TrimSpace(m.modalInput.Value())
+			if name == "" {
+				return m, nil
+			}
+			parentFolder := m.currentFolderName()
+			dir := filepath.Join(m.snippetsDir, parentFolder, name)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				m.modal = modalError
+				m.modalError = fmt.Sprintf("Could not create subfolder: %v", err)
+				return m, nil
+			}
+			m.modal = modalNone
+			m.statusMsg = "Subfolder '" + name + "' created inside " + parentFolder
+			m.statusIsSuccess = true
+			return m, clearStatusAfter(3 * time.Second)
+		default:
+			m.modalInput, cmd = m.modalInput.Update(msg)
+		}
+		return m, cmd
+
+	case modalConsole:
+		switch msg.String() {
+		case "esc", "q":
+			m.modal = modalNone
+			m.consoleInput = ""
+			m.consoleOutput = ""
+		case "backspace", "ctrl+h":
+			if len(m.consoleInput) > 0 {
+				m.consoleInput = m.consoleInput[:len(m.consoleInput)-1]
+			}
+		case "enter":
+			consoleCmd := strings.TrimSpace(m.consoleInput)
+			m.consoleInput = ""
+			switch strings.ToLower(consoleCmd) {
+			case "time":
+				m.modal = modalTimeCalc
+				m.timeInput = ""
+				m.timeResult = ""
+				m.modalInput.SetValue("")
+				m.modalInput.Focus()
+				m.modalInput.Placeholder = "HH:MM (e.g. 08:00)"
+			case "whoami":
+				m.modal = modalWhoami
+			case "help":
+				m.modal = modalHelpConsole
+			case "clear":
+				m.consoleOutput = ""
+				m.modal = modalConsole
+			case "exit", "quit":
+				m.modal = modalNone
+			default:
+				if consoleCmd != "" {
+					m.consoleOutput = "Unknown command: '" + consoleCmd + "'\nType 'help' for available commands."
+				}
+			}
+		default:
+			r := msg.String()
+			if len(r) == 1 && r[0] >= 0x20 {
+				m.consoleInput += r
+			}
+		}
+		return m, nil
+
+	case modalTimeCalc:
+		switch msg.String() {
+		case "esc":
+			m.modal = modalConsole
+			m.timeInput = ""
+			m.timeResult = ""
+		case "enter":
+			if m.timeResult != "" {
+				// already computed — go back to console
+				m.modal = modalConsole
+				m.timeInput = ""
+				m.timeResult = ""
+			} else {
+				val := strings.TrimSpace(m.modalInput.Value())
+				if val == "" {
+					return m, nil
+				}
+				m.timeInput = val
+				m.timeResult = calcWorkHours(val)
+			}
+		default:
+			if m.timeResult == "" {
+				m.modalInput, cmd = m.modalInput.Update(msg)
+			}
+		}
+		return m, cmd
+
+	case modalWhoami:
+		switch msg.String() {
+		case "esc", "q", "enter":
+			m.modal = modalConsole
+		}
+		return m, nil
+
+	case modalHelpConsole:
+		switch msg.String() {
+		case "esc", "q", "enter":
+			m.modal = modalConsole
 		}
 		return m, nil
 
@@ -922,10 +1081,20 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			e := m.subNavEntries[m.subNavCursor]
 			if e.isDir {
-				// navigate into subfolder
-				m.subNavStack = append(m.subNavStack, e.name)
-				m.subNavCursor = 0
-				m.loadSubNavEntries()
+				// descend into this subfolder as the new Folders panel root
+				rel := strings.Join(m.subNavStack, string(filepath.Separator))
+				newRoot := filepath.Join(m.snippetsDir, rel, e.name)
+				m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
+				m.snippetsDir = newRoot
+				m.modal = modalNone
+				m.folderCursor = 0
+				m.fileCursor = 0
+				m.loadFolders()
+				m.loadFiles()
+				m.loadPreview()
+				m.statusMsg = "Navigated into: " + e.name + "  (← to go back)"
+				m.statusIsSuccess = true
+				return m, clearStatusAfter(4 * time.Second)
 			} else {
 				// load file into preview and close modal
 				rel := strings.Join(m.subNavStack, string(filepath.Separator))
@@ -1053,6 +1222,57 @@ func (m model) handleGitModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// handleFolderSearchKey handles keypresses while folder search is active.
+func (m model) handleFolderSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.folderSearchActive = false
+		m.folderSearchQuery = ""
+	case "ctrl+c":
+		return m, tea.Quit
+	case "backspace", "ctrl+h":
+		if len(m.folderSearchQuery) > 0 {
+			m.folderSearchQuery = m.folderSearchQuery[:len(m.folderSearchQuery)-1]
+		}
+		m.folderCursor = 0
+	case "up", "k":
+		if m.folderCursor > 0 {
+			m.folderCursor--
+			m.folderScroll = clampScroll(m.folderCursor, m.folderScroll, 10)
+		}
+	case "down", "j":
+		list := m.filteredFolders()
+		if m.folderCursor < len(list)-1 {
+			m.folderCursor++
+			m.folderScroll = clampScroll(m.folderCursor, m.folderScroll, 10)
+		}
+	case "enter":
+		// confirm selection — map filtered index back to real folders index
+		list := m.filteredFolders()
+		if m.folderCursor < len(list) {
+			selected := list[m.folderCursor]
+			for i, f := range m.folders {
+				if f == selected {
+					m.folderCursor = i
+					m.folderScroll = clampScroll(i, m.folderScroll, 10)
+					break
+				}
+			}
+		}
+		m.folderSearchActive = false
+		m.folderSearchQuery = ""
+		m.loadFiles()
+		m.loadPreview()
+	default:
+		r := msg.String()
+		if len(r) == 1 && r[0] >= 0x20 {
+			m.folderSearchQuery += r
+			m.folderCursor = 0
+		}
+	}
+	return m, nil
+}
+
 // handleSearchKey handles keypresses while inline search is active in the files panel.
 func (m model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -1150,26 +1370,22 @@ func (m model) handlePreviewSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.previewScroll = max(0, hits[0]-3)
 		}
 
-	case "n":
-		// next hit
-		if len(m.previewSearchHits) > 0 {
-			m.previewSearchCursor = (m.previewSearchCursor + 1) % len(m.previewSearchHits)
-			m.previewScroll = max(0, m.previewSearchHits[m.previewSearchCursor]-3)
-		}
-
-	case "N":
-		// previous hit
-		if len(m.previewSearchHits) > 0 {
-			m.previewSearchCursor = (m.previewSearchCursor - 1 + len(m.previewSearchHits)) % len(m.previewSearchHits)
-			m.previewScroll = max(0, m.previewSearchHits[m.previewSearchCursor]-3)
-		}
-
 	default:
 		r := msg.String()
 		if len(r) == 1 && r[0] >= 0x20 {
-			m.previewSearchQuery += r
-			m.previewSearchHits = nil
-			m.previewSearchCursor = 0
+			if r == "n" && len(m.previewSearchHits) > 0 {
+				// next hit (only when hits already computed)
+				m.previewSearchCursor = (m.previewSearchCursor + 1) % len(m.previewSearchHits)
+				m.previewScroll = max(0, m.previewSearchHits[m.previewSearchCursor]-3)
+			} else if r == "N" && len(m.previewSearchHits) > 0 {
+				// previous hit (only when hits already computed)
+				m.previewSearchCursor = (m.previewSearchCursor - 1 + len(m.previewSearchHits)) % len(m.previewSearchHits)
+				m.previewScroll = max(0, m.previewSearchHits[m.previewSearchCursor]-3)
+			} else {
+				m.previewSearchQuery += r
+				m.previewSearchHits = nil
+				m.previewSearchCursor = 0
+			}
 		}
 	}
 	return m, nil

@@ -44,6 +44,12 @@ const (
 	modalDeleteFolder
 	modalRenameFile
 	modalSubfolderNav
+	modalSplash
+	modalConsole
+	modalTimeCalc
+	modalWhoami
+	modalHelpConsole
+	modalNewSubfolder
 )
 
 type fileEntry struct {
@@ -64,11 +70,13 @@ type model struct {
 	files      []fileEntry
 	fileCursor int
 
-	previewContent   string
-	previewHighlight string
-	previewScroll    int
-	previewIsImage   bool
-	previewFilePath  string // absolute path of previewed file (may differ from currentFilePath when in subNav)
+	previewContent    string
+	previewHighlight  string
+	previewScroll     int
+	previewIsImage    bool
+	previewIsMarkdown bool
+	previewFilePath   string // absolute path of previewed file (may differ from currentFilePath when in subNav)
+	previewWidth      int    // panel width snapshot used for markdown word-wrap
 
 	modal        modalKind
 	modalInput   textinput.Model
@@ -116,6 +124,25 @@ type model struct {
 	subNavStack   []string // stack of folder path segments relative to snippetsDir
 	subNavEntries []subNavEntry
 	subNavCursor  int
+
+	// folder search (/ in Folders panel)
+	folderSearchActive bool
+	folderSearchQuery  string
+
+	// console easter egg
+	consoleInput   string
+	consoleOutput  string // result text shown after a command
+
+	// time calculator
+	timeInput string
+	timeResult string
+
+	// folder panel dir-stack navigation (← goes back)
+	folderDirStack []string // previous snippetsDirs pushed when descending into subfolder
+
+	// splash shown only when no CLI arg
+	showSplash bool
+	splashChoice int // 0=default, 1=pick
 }
 
 type subNavEntry struct {
@@ -282,11 +309,18 @@ func (m model) resolvedFile() (fileEntry, bool) {
 	return list[idx], true
 }
 
+// isMarkdownFile returns true when the filename has a .md or .markdown extension.
+func isMarkdownFile(name string) bool {
+	ext := strings.ToLower(filepath.Ext(name))
+	return ext == ".md" || ext == ".markdown"
+}
+
 func (m *model) loadPreview() {
 	m.previewContent = ""
 	m.previewHighlight = ""
 	m.previewScroll = 0
 	m.previewIsImage = false
+	m.previewIsMarkdown = false
 	m.previewFilePath = ""
 	folderName := m.currentFolderName()
 	if folderName == "" {
@@ -317,7 +351,12 @@ func (m *model) loadPreview() {
 		return
 	}
 	m.previewContent = string(data)
-	m.previewHighlight = highlightCode(m.previewContent, f.name)
+	if isMarkdownFile(f.name) {
+		m.previewIsMarkdown = true
+		m.previewHighlight = renderMarkdown(m.previewContent, m.previewWidth)
+	} else {
+		m.previewHighlight = highlightCode(m.previewContent, f.name)
+	}
 }
 
 // loadPreviewFromPath loads a preview for any arbitrary absolute file path.
@@ -326,6 +365,7 @@ func (m *model) loadPreviewFromPath(path string) {
 	m.previewHighlight = ""
 	m.previewScroll = 0
 	m.previewIsImage = false
+	m.previewIsMarkdown = false
 	m.previewFilePath = path
 	name := filepath.Base(path)
 	if isImageFile(name) {
@@ -345,7 +385,12 @@ func (m *model) loadPreviewFromPath(path string) {
 		return
 	}
 	m.previewContent = string(data)
-	m.previewHighlight = highlightCode(m.previewContent, name)
+	if isMarkdownFile(name) {
+		m.previewIsMarkdown = true
+		m.previewHighlight = renderMarkdown(m.previewContent, m.previewWidth)
+	} else {
+		m.previewHighlight = highlightCode(m.previewContent, name)
+	}
 }
 
 // isBinary returns true when data contains null bytes or too many non-printable
@@ -395,6 +440,49 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// filteredFolders returns the folders list filtered by m.folderSearchQuery.
+func (m model) filteredFolders() []string {
+	if !m.folderSearchActive || strings.TrimSpace(m.folderSearchQuery) == "" {
+		return m.folders
+	}
+	q := strings.ToLower(strings.TrimSpace(m.folderSearchQuery))
+	var out []string
+	for _, f := range m.folders {
+		if strings.Contains(strings.ToLower(f), q) {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// calcWorkHours returns formatted exit times given an HH:MM entry string.
+// Rules mirror the controle-horas.ps1 logic:
+//   interval=1h, dayWork=8h48, maxDay=10h
+func calcWorkHours(entry string) string {
+	var h, min int
+	if _, err := fmt.Sscanf(strings.TrimSpace(entry), "%d:%d", &h, &min); err != nil {
+		return "Invalid format. Use HH:MM (e.g. 08:00)"
+	}
+	startMin := h*60 + min
+	// lunch interval = 60 min
+	// normal exit after 8h48 work + 60 lunch = 9h48 = 588 min
+	normal := startMin + 588
+	// max exit after 10h work + 60 lunch = 11h = 660 min
+	maxExit := startMin + 660
+	// first break suggestion: +60min (coffee)
+	coffee := startMin + 60
+	// lunch: +4h (start)
+	lunchStart := startMin + 4*60
+	lunchEnd := lunchStart + 60
+	fmtT := func(m int) string {
+		return fmt.Sprintf("%02d:%02d", m/60, m%60)
+	}
+	return fmt.Sprintf(
+		"  Entry:        %s\n  Coffee break: %s\n  Lunch start:  %s\n  Lunch end:    %s\n\n  Normal exit:  %s  (8h48 worked)\n  Maximum exit: %s  (10h worked)\n",
+		entry, fmtT(coffee), fmtT(lunchStart), fmtT(lunchEnd), fmtT(normal), fmtT(maxExit),
+	)
 }
 
 // filteredFiles returns the files list filtered by m.searchQuery.

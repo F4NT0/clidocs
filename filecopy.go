@@ -134,7 +134,7 @@ if ($result -ne "") { Write-Output $result }
 	if err != nil {
 		pwsh = "powershell"
 	}
-	cmd := exec.Command(pwsh, "-NoProfile", "-NonInteractive", "-Command", ps)
+	cmd := exec.Command(pwsh, "-NoProfile", "-Command", ps)
 	out, err := cmd.Output()
 	if err != nil {
 		// fallback to old FolderBrowserDialog if COM approach fails
@@ -160,7 +160,7 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 	if err != nil {
 		pwsh = "powershell"
 	}
-	cmd := exec.Command(pwsh, "-NoProfile", "-NonInteractive", "-Command", ps)
+	cmd := exec.Command(pwsh, "-NoProfile", "-Command", ps)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("folder picker failed: %v", err)

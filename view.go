@@ -126,26 +126,36 @@ func (m model) renderFoldersPanel(w, h int) string {
 
 	// ── Title ─────────────────────────────────────────────────────────
 	titleText := " Folders"
-	if m.snippetsDir != m.origSnippetsDir {
+	if len(m.folderDirStack) > 0 {
+		titleText = " Folders " + mutedStyle.Render("← back")
+	} else if m.snippetsDir != m.origSnippetsDir {
 		titleText = " Folders " + mutedStyle.Render("H:home")
 	}
-	lines = append(lines, panelTitleStyle.Render(titleText))
+	if m.folderSearchActive {
+		searchBar := lipgloss.NewStyle().Foreground(colorOrange).Render("/ ") +
+			lipgloss.NewStyle().Foreground(colorFg).Render(m.folderSearchQuery) +
+			lipgloss.NewStyle().Foreground(colorFgMuted).Render("█")
+		lines = append(lines, searchBar)
+	} else {
+		lines = append(lines, panelTitleStyle.Render(titleText))
+	}
 	lines = append(lines, mutedStyle.Render(strings.Repeat("─", innerW-1)))
 
 	// ── Main folders list (virtual scroll, no scrollbar) ─────────────
+	displayFolders := m.filteredFolders()
 	scroll := clampScroll(m.folderCursor, m.folderScroll, mainListH)
 
-	if len(m.folders) == 0 {
+	if len(displayFolders) == 0 {
 		lines = append(lines, mutedStyle.Render("No folders yet"))
 		lines = append(lines, mutedStyle.Render("Press n to create"))
 	} else {
 		for row := 0; row < mainListH; row++ {
 			idx := scroll + row
-			if idx >= len(m.folders) {
+			if idx >= len(displayFolders) {
 				lines = append(lines, "")
 				continue
 			}
-			name := m.folders[idx]
+			name := displayFolders[idx]
 			label := truncate(name, innerW-6)
 			isFav := m.isFavorite(name)
 			favMark := ""
@@ -156,7 +166,8 @@ func (m model) renderFoldersPanel(w, h int) string {
 			if m.hasSubfolders(name) {
 				subMark = mutedStyle.Render(" ›")
 			}
-			isSelected := !m.inFavSection && idx == m.folderCursor
+			isSelected := !m.inFavSection && idx == m.folderCursor && !m.folderSearchActive ||
+				m.folderSearchActive && idx == m.folderCursor
 			var rowStr string
 			if isSelected {
 				rowStr = arrowStyle.Render("> ") +
@@ -317,12 +328,16 @@ func (m model) renderPreviewPanel(w, h int) string {
 		ext, extColor := getFileIcon(displayName)
 		badge := lipgloss.NewStyle().Foreground(extColor).Render(ext)
 		name := lipgloss.NewStyle().Foreground(colorFg).Bold(true).Render(displayName)
-		// line numbers indicator
+		// indicator tags
 		lnTag := ""
 		if m.previewLineNumbers {
 			lnTag = " " + mutedStyle.Render("[LN]")
 		}
-		panelTitle = " " + badge + "  " + name + lnTag
+		mdTag := ""
+		if m.previewIsMarkdown {
+			mdTag = " " + lipgloss.NewStyle().Foreground(lipgloss.Color("#519aba")).Bold(true).Render("[MD]")
+		}
+		panelTitle = " " + badge + "  " + name + lnTag + mdTag
 	} else {
 		panelTitle = panelTitleStyle.Render(" Preview")
 	}
@@ -391,32 +406,39 @@ func (m model) renderPreviewPanel(w, h int) string {
 			end = len(hLines)
 		}
 
-		// line number gutter width
-		totalLines := len(strings.Split(m.previewContent, "\n"))
-		gnW := len(fmt.Sprintf("%d", totalLines))
-
-		for i, line := range hLines[start:end] {
-			absLine := start + i // 0-based line index
-			if m.previewLineNumbers {
-				lineNum := fmt.Sprintf("%*d", gnW, absLine+1)
-				var gnStyle lipgloss.Style
-				if absLine == currentHitLine {
-					gnStyle = lipgloss.NewStyle().Foreground(colorOrange).Bold(true)
-				} else if hitSet[absLine] {
-					gnStyle = lipgloss.NewStyle().Foreground(colorGreen)
-				} else {
-					gnStyle = mutedStyle
-				}
-				contentLines = append(contentLines, gnStyle.Render(lineNum)+ mutedStyle.Render(" │ ")+line)
-			} else if absLine == currentHitLine {
-				// highlight current hit line even without line numbers
-				contentLines = append(contentLines,
-					lipgloss.NewStyle().Foreground(colorOrange).Bold(true).Render("▶ ")+line)
-			} else if hitSet[absLine] {
-				contentLines = append(contentLines,
-					lipgloss.NewStyle().Foreground(colorGreen).Render("• ")+line)
-			} else {
+		if m.previewIsMarkdown {
+			// glamour output: render lines directly without gutter or hit markers
+			// (its ANSI sequences would be mangled by prefix injection)
+			for _, line := range hLines[start:end] {
 				contentLines = append(contentLines, line)
+			}
+		} else {
+			// line number gutter width
+			totalLines := len(strings.Split(m.previewContent, "\n"))
+			gnW := len(fmt.Sprintf("%d", totalLines))
+
+			for i, line := range hLines[start:end] {
+				absLine := start + i // 0-based line index
+				if m.previewLineNumbers {
+					lineNum := fmt.Sprintf("%*d", gnW, absLine+1)
+					var gnStyle lipgloss.Style
+					if absLine == currentHitLine {
+						gnStyle = lipgloss.NewStyle().Foreground(colorOrange).Bold(true)
+					} else if hitSet[absLine] {
+						gnStyle = lipgloss.NewStyle().Foreground(colorGreen)
+					} else {
+						gnStyle = mutedStyle
+					}
+					contentLines = append(contentLines, gnStyle.Render(lineNum)+mutedStyle.Render(" │ ")+line)
+				} else if absLine == currentHitLine {
+					contentLines = append(contentLines,
+						lipgloss.NewStyle().Foreground(colorOrange).Bold(true).Render("▶ ")+line)
+				} else if hitSet[absLine] {
+					contentLines = append(contentLines,
+						lipgloss.NewStyle().Foreground(colorGreen).Render("• ")+line)
+				} else {
+					contentLines = append(contentLines, line)
+				}
 			}
 		}
 	}
@@ -633,6 +655,8 @@ func (m model) renderStatusBar() string {
 				Render(m.statusMsg)
 		}
 		help = m.statusMsg
+	} else if m.folderSearchActive {
+		help = "Typing: filter folders  ↑↓: navigate results  Enter: select  Esc: cancel search"
 	} else if m.searchActive {
 		help = "Typing: filter files  ↑↓: navigate results  Enter: select  Esc: cancel search"
 	} else if m.previewSearchActive {
@@ -645,7 +669,11 @@ func (m model) renderStatusBar() string {
 	} else {
 		switch m.activePanel {
 		case panelFolders:
-			help = "↑↓: folders  Enter: open  n: new  R: rename  D: delete  f: fav  F: favorites  H: home  o: dir info  g: sync  Tab: next panel  q: quit"
+			if len(m.folderDirStack) > 0 {
+				help = "↑↓: folders  Enter: open  ←: back  n: new  N: new subfolder  R: rename  D: delete  f: fav  /: search  q: quit"
+			} else {
+				help = "↑↓: folders  Enter: open  n: new  N: new subfolder  R: rename  D: delete  f: fav  /: search  o: dir info  q: quit"
+			}
 		case panelFiles:
 			help = "↑↓: files  Enter: edit  /: search  n: new  r: rename  m: move  c: import  d: delete  g: sync  G: git config  Tab: next panel"
 		case panelPreview:
@@ -701,6 +729,16 @@ func (m model) renderWithModal() string {
 		modal = m.renderRenameFileModal()
 	case modalSubfolderNav:
 		modal = m.renderSubfolderNavModal()
+	case modalNewSubfolder:
+		modal = m.renderNewSubfolderModal()
+	case modalConsole:
+		modal = m.renderConsoleModal()
+	case modalTimeCalc:
+		modal = m.renderTimeCalcModal()
+	case modalWhoami:
+		modal = m.renderWhoamiModal()
+	case modalHelpConsole:
+		modal = m.renderHelpConsoleModal()
 	}
 
 	return overlayModal(base, modal, m.width, m.height)
@@ -961,6 +999,116 @@ func truncate(s string, max int) string {
 		return string(runes[:max])
 	}
 	return string(runes[:max-3]) + "..."
+}
+
+func (m model) renderNewSubfolderModal() string {
+	parent := m.currentFolderName()
+	title := lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render(" New Subfolder")
+	sep := mutedStyle.Render(strings.Repeat("─", 44))
+	info := mutedStyle.Render("Inside: ") + lipgloss.NewStyle().Foreground(colorOrange).Render(parent)
+	rows := []string{title, sep, info, "", " " + m.modalInput.View(), ""}
+	rows = append(rows, sep, mutedStyle.Render("Enter: create  Esc: cancel"))
+	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
+}
+
+func (m model) renderConsoleModal() string {
+	cyan := lipgloss.Color("#00e5ff")
+	title := lipgloss.NewStyle().Foreground(cyan).Bold(true).Render("─── Cmdline ───")
+	sep := mutedStyle.Render(strings.Repeat("─", 60))
+	prompt := lipgloss.NewStyle().Foreground(cyan).Render("> ") +
+		lipgloss.NewStyle().Foreground(colorFg).Render(m.consoleInput) +
+		lipgloss.NewStyle().Foreground(colorFgMuted).Render("█")
+	inputLine := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(cyan).
+		Padding(0, 1).
+		Width(58).
+		Render(prompt)
+	rows := []string{"", title, "", inputLine}
+	if m.consoleOutput != "" {
+		rows = append(rows, "", sep)
+		for _, l := range strings.Split(m.consoleOutput, "\n") {
+			rows = append(rows, lipgloss.NewStyle().Foreground(colorOrange).Render(l))
+		}
+	}
+	rows = append(rows, "", sep,
+		mutedStyle.Render("time · whoami · help · clear · exit  |  Esc: close"))
+	style := lipgloss.NewStyle().
+		Background(colorBg).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(cyan).
+		Padding(1, 2)
+	return style.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
+}
+
+func (m model) renderTimeCalcModal() string {
+	title := lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render(" Work Hours Calculator")
+	sep := mutedStyle.Render(strings.Repeat("─", 52))
+	var rows []string
+	rows = append(rows, title, sep)
+	if m.timeResult != "" {
+		rows = append(rows, "")
+		for _, l := range strings.Split(m.timeResult, "\n") {
+			rows = append(rows, lipgloss.NewStyle().Foreground(colorFg).Render(l))
+		}
+		rows = append(rows, "", sep,
+			mutedStyle.Render("Enter: back to console  Esc: back"))
+	} else {
+		rows = append(rows,
+			mutedStyle.Render("Enter your start time (HH:MM):"),
+			"",
+			" "+m.modalInput.View(),
+			"",
+			sep,
+			mutedStyle.Render("Enter: calculate  Esc: back"))
+	}
+	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
+}
+
+func (m model) renderWhoamiModal() string {
+	title := lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render(" whoami")
+	sep := mutedStyle.Render(strings.Repeat("─", 50))
+	var rows []string
+	rows = append(rows, title, sep)
+	for _, l := range strings.Split(whoamiText, "\n") {
+		rows = append(rows, lipgloss.NewStyle().Foreground(colorFg).Render(l))
+	}
+	rows = append(rows, sep, mutedStyle.Render("Enter / Esc: back to console"))
+	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
+}
+
+func (m model) renderHelpConsoleModal() string {
+	blue := colorAccentBlue
+	colStyle := lipgloss.NewStyle().
+		Foreground(colorFg).
+		Background(colorBg).
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(blue).
+		Padding(0, 1).
+		Width(34)
+
+	leftCol := colStyle.Render(
+		lipgloss.NewStyle().Foreground(blue).Bold(true).Render(" Shortcuts — Left") + "\n" +
+			mutedStyle.Render(strings.Repeat("─", 32)) + "\n" +
+			lipgloss.NewStyle().Foreground(colorFg).Render(helpLeft),
+	)
+	rightCol := colStyle.Render(
+		lipgloss.NewStyle().Foreground(blue).Bold(true).Render(" Shortcuts — Right") + "\n" +
+			mutedStyle.Render(strings.Repeat("─", 32)) + "\n" +
+			lipgloss.NewStyle().Foreground(colorFg).Render(helpRight),
+	)
+
+	columns := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, "  ", rightCol)
+
+	title := lipgloss.NewStyle().Foreground(blue).Bold(true).Render(" Help — Keyboard Shortcuts & Commands")
+	footer := mutedStyle.Render("Enter / Esc: back to console")
+
+	outer := lipgloss.NewStyle().
+		Background(colorBg).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(blue).
+		Padding(0, 1)
+	return outer.Render(lipgloss.JoinVertical(lipgloss.Left, title, "", columns, "", footer))
 }
 
 func stripAnsi(s string) string {

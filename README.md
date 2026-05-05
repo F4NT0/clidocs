@@ -32,10 +32,12 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Splash Screen](#splash-screen)
 - [Interface](#interface)
 - [Keyboard Shortcuts](#keyboard-shortcuts)
 - [Folder Management](#folder-management)
 - [Subfolder Navigation](#subfolder-navigation)
+- [Folder Search](#folder-search)
 - [Snippets Management](#snippets-management)
 - [Preview Panel](#preview-panel)
 - [Folder Favorites](#folder-favorites)
@@ -43,6 +45,7 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 - [Neovim Integration](#neovim-integration)
 - [File Import](#file-import)
 - [GitHub Sync](#github-sync)
+- [Console Easter Egg](#console-easter-egg)
 - [Supported Languages](#supported-languages)
 - [Project Structure](#project-structure)
 - [Dependencies](#dependencies)
@@ -51,6 +54,9 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 
 ## Features
 
+<details>
+<summary><strong>Click to expand full feature list</strong></summary>
+
 [![TUI](https://img.shields.io/badge/Three--panel%20TUI-Folders%20%7C%20Snippets%20%7C%20Preview-30363d?style=flat-square)](.)
 [![Highlight](https://img.shields.io/badge/Syntax%20Highlighting-GitHub%20Dark-161b22?style=flat-square&logo=github)](.)
 [![Neovim](https://img.shields.io/badge/Edit%20with-Neovim%20%7C%20VS%20Code-57a143?style=flat-square&logo=neovim)](.)
@@ -58,7 +64,10 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 [![Import](https://img.shields.io/badge/Import-Files%20from%20anywhere-e8912d?style=flat-square)](.)
 
 - **Three-panel layout** — Folders / Snippets / Preview, fully keyboard-driven
-- **Subfolder navigation** — folders containing subfolders show a `›` indicator; press `Enter` to browse them in a modal, navigate with `↑↓`, `Enter` to descend, `Backspace` to go back up
+- **Splash screen** — ASCII art welcome screen when launching without a CLI argument; choose default dir or browse for another
+- **Subfolder navigation** — folders containing subfolders show a `›` indicator; press `Enter` to open a Browse modal; selecting a subfolder sets it as the new Folders panel root; press `←` to go back up
+- **Create subfolders** — press `N` in the Folders panel to create a subfolder inside the selected folder
+- **Folder search** — press `/` in the Folders panel to filter folders by name in real-time
 - **Rename folders** — press `R` in the Folders panel to rename any folder inline
 - **Delete folders** — press `D` in the Folders panel to delete a folder and all its contents (with confirmation)
 - **Rename snippets** — press `r` in the Snippets panel to rename the selected file
@@ -72,7 +81,7 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 - **Return to home directory** — press `H` to return to the original snippets directory
 - **Copy preview to clipboard** — press `c` in Preview to copy the entire file content
 - **Inline file search** — press `/` in Snippets to filter files by name in real-time
-- **Preview word search** — press `/` in Preview to search for any word with match highlighting
+- **Preview word search** — press `/` in Preview to search for any word; type freely including `n`; `n`/`N` cycle hits only after `Enter`
 - **Line numbers** — toggle with `L`; matched search lines highlighted in orange / green
 - **Modern folder picker** — uses Windows Explorer-style `IFileOpenDialog` when changing directory
 - **Contextual status bar** — hints update automatically based on active panel
@@ -82,7 +91,11 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 - **GitHub sync** — push your snippets to a remote repository with a single key press
 - **TUI Installer** — `clidocs-install.exe` adds `clidocs` to PATH automatically
 - **CLI directory argument** — run `clidocs`, `clidocs .`, or `clidocs <path>` to open any directory
+- **Console easter egg** — press `:` from any panel to open the `Cmdline` console with commands: `time`, `whoami`, `help`, `clear`
+- **Work hours calculator** — `time` command computes coffee break, lunch, normal exit and max exit times
 - **Dark theme** — unified `#0d1117` background, GitHub-inspired palette
+
+</details>
 
 ---
 
@@ -143,6 +156,35 @@ clidocs .\docs\snippets
 
 ---
 
+## Splash Screen
+
+When you run `clidocs` **without any arguments**, an ASCII art welcome screen is shown:
+
+```
+ ██████╗██╗     ██╗██████╗  ██████╗  ██████╗███████╗
+██╔════╝██║     ██║██╔══██╗██╔═══██╗██╔════╝██╔════╝
+██║     ██║     ██║██║  ██║██║   ██║██║     ███████╗
+██║     ██║     ██║██║  ██║██║   ██║██║     ╚════██║
+╚██████╗███████╗██║██████╔╝╚██████╔╝╚██████╗███████║
+ ╚═════╝╚══════╝╚═╝╚═════╝  ╚═════╝  ╚═════╝╚══════╝
+```
+
+Use `↑↓` to choose between:
+
+| Option | Action |
+|---|---|
+| **Open default snippets directory** | Launches with `%USERPROFILE%\clidocs_snippets` |
+| **Browse for a directory...** | Opens a Windows Explorer-style folder picker |
+
+Press `Enter` to confirm or `Ctrl+C` to quit.
+
+> The splash screen is **skipped** when you pass a path argument: `clidocs .` or `clidocs <path>`.
+
+<!-- <img src="images/splash-screen.png" alt="Splash screen" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/splash-screen.png`*
+
+---
+
 ## Interface
 
 <div align="center">
@@ -156,7 +198,7 @@ clidocs .\docs\snippets
 
 | Panel | Description |
 |---|---|
-| **Folders** | Categories for your snippets. Selected folder shown in blue with `>` arrow. Folders with subfolders show a `›` indicator. |
+| **Folders** | Categories for your snippets. Selected folder shown in blue with `>` arrow. Folders with subfolders show a `›` indicator. Press `←` to go back when inside a subfolder. |
 | **Snippets** | Files inside the selected folder. Selected file shown in green. Extension badge colored by language. |
 | **Preview** | Syntax-highlighted content of the selected file. Shows full file path in orange. Scrollable. |
 
@@ -173,8 +215,11 @@ clidocs .\docs\snippets
 |---|---|
 | `↑` / `k` | Previous folder |
 | `↓` / `j` | Next folder |
-| `Enter` | Open folder → Snippets panel (or open subfolder navigator if folder has subfolders) |
+| `Enter` | Open folder → Snippets panel (or subfolder navigator when folder has subfolders) |
+| `←` | **Go back** to parent directory (when inside a subfolder) |
 | `n` | Create new folder |
+| `N` | Create new **subfolder** inside the selected folder |
+| `/` | **Search / filter** folders by name |
 | `R` | **Rename** selected folder |
 | `D` | **Delete** selected folder and all its contents (confirmation required) |
 | `f` | Favorite / unfavorite the selected folder |
@@ -239,10 +284,10 @@ clidocs .\docs\snippets
 
 | Key | Action |
 |---|---|
-| Type | Enter search term |
+| Type (any key) | Appends to search query — **including `n`** |
 | `Enter` | Find all matches — matched lines highlighted |
-| `n` | Jump to next match |
-| `N` | Jump to previous match |
+| `n` | Jump to **next** match (only after `Enter` has been pressed) |
+| `N` | Jump to **previous** match (only after `Enter` has been pressed) |
 | `Esc` | Close search |
 
 </details>
@@ -254,7 +299,8 @@ clidocs .\docs\snippets
 |---|---|
 | `↑` / `k` | Previous entry |
 | `↓` / `j` | Next entry |
-| `Enter` | Enter subdirectory / open file in Preview |
+| `Enter` on **directory** | **Set as Folders panel root** — browse its contents directly |
+| `Enter` on **file** | Load file in Preview panel |
 | `Backspace` | Go up one level (or close modal if at root) |
 | `Esc` | Close modal |
 
@@ -270,7 +316,21 @@ clidocs .\docs\snippets
 | `g` | Sync to GitHub |
 | `G` | Edit GitHub config |
 | `o` | Snippets directory info (non-Preview panels) |
+| `:` | Open **Console** easter egg |
 | `q` / `Ctrl+C` | Quit |
+
+</details>
+
+<details>
+<summary><strong>🖥️ Console (easter egg — press <code>:</code>)</strong></summary>
+
+| Command | Action |
+|---|---|
+| `time` | Work hours calculator — enter start time, get exit times |
+| `whoami` | Show custom user info |
+| `help` | Show all shortcuts and commands |
+| `clear` | Clear console output |
+| `exit` / `q` | Close console |
 
 </details>
 
@@ -313,17 +373,46 @@ clidocs .\docs\snippets
 
 Folders that contain subfolders display a `›` indicator next to their name.
 
+### Browsing subfolders
+
 1. Navigate to a folder with the `›` marker
 2. Press `Enter` — the **Browse Folder** modal opens
-3. A breadcrumb shows the current path (e.g. `/projects/backend`)
-4. Use `↑↓` to navigate entries — directories and files are listed together
-5. Press `Enter` on a **subdirectory** to descend into it
-6. Press `Enter` on a **file** to load it directly in the Preview panel
-7. Press `Backspace` to go up one level (or close the modal when at the root)
-8. Press `Esc` to close at any time
+3. Use `↑↓` to navigate entries — directories and files are listed together
+4. Press `Enter` on a **subdirectory** — it becomes the new **Folders panel root**; the panel now shows the contents of that subdirectory
+5. Press `Enter` on a **file** — it loads directly in the Preview panel
+6. Press `Backspace` to go up one level (or close the modal when at root)
+7. Press `Esc` to close at any time
+
+### Going back up
+
+After descending into a subfolder, the Folders panel title shows **`← back`**.  
+Press `←` (left arrow) on the **Folders panel** to go back to the parent directory.
+
+### Creating a subfolder
+
+1. Navigate to any folder in the Folders panel
+2. Press `N` — a modal asks for the new subfolder name
+3. Press `Enter` to create, `Esc` to cancel
 
 <!-- <img src="images/subfolder-nav.png" alt="Subfolder navigation" width="750"> -->
 > 📸 *Screenshot placeholder — add `images/subfolder-nav.png`*
+
+<!-- <img src="images/subfolder-back.png" alt="Subfolder back navigation" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/subfolder-back.png`*
+
+---
+
+## Folder Search
+
+1. Focus the **Folders** panel
+2. Press `/` — the title bar changes to `/ query█`
+3. Type to filter — only folders matching the query are shown
+4. Use `↑`/`↓` to navigate filtered results
+5. Press `Enter` to confirm selection and switch to that folder's snippets
+6. Press `Esc` to cancel and restore the full list
+
+<!-- <img src="images/folder-search.png" alt="Folder search" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/folder-search.png`*
 
 ---
 
@@ -423,6 +512,29 @@ Press `L` to toggle line numbers. When active, matched search lines show their n
 
 <!-- <img src="images/Show_Line_Numbers.png" alt="Line numbers" width="750"> -->
 > 📸 *Screenshot placeholder — add `images/Show_Line_Numbers.png`*
+
+### Markdown Preview
+
+Files with a `.md` or `.markdown` extension are rendered using **[glamour](https://github.com/charmbracelet/glamour)** — the same GitHub Dark style used in terminal markdown viewers:
+
+| Markdown | Rendered as |
+|---|---|
+| `# Heading` | Bold colored heading |
+| `**bold**` | **Bold** text |
+| `*italic*` | *Italic* text |
+| `` `code` `` | Inline code block |
+| ` ```go ` fenced block | Syntax-highlighted code |
+| `- list item` | Bulleted list |
+| `> blockquote` | Quoted block |
+| `[link](url)` | Styled link |
+| `---` | Horizontal rule |
+
+A **`[MD]`** badge appears in the preview panel title when a markdown file is active.
+
+> **Note:** LaTeX math formulas (`$x^2$`, `$$\int$$`) are not rendered — the terminal has no math engine. Write formulas as ASCII (`x²`) or use fenced code blocks (` ```math `).
+
+<!-- <img src="images/markdown-preview.png" alt="Markdown preview" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/markdown-preview.png`*
 
 ### Copy to clipboard
 
@@ -558,6 +670,53 @@ Press `G` at any time to update the repo URL, username, or email.
 
 ---
 
+## Console Easter Egg
+
+Press `:` from **any panel** to open the `Cmdline` console — a command-line interface inside clidocs.
+
+<!-- <img src="images/console.png" alt="Console easter egg" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/console.png`*
+
+### Available commands
+
+| Command | Description |
+|---|---|
+| `time` | **Work hours calculator** — enter your start time (HH:MM) and get coffee break, lunch times, normal exit and maximum exit times |
+| `whoami` | Shows your custom user info (edit the `whoamiText` constant in `console.go`) |
+| `help` | Displays all keyboard shortcuts and console commands |
+| `clear` | Clears the console output area |
+| `exit` / `quit` | Closes the console |
+
+### Work Hours Calculator (`time`)
+
+Based on a standard workday of **8h48** (with 1h lunch), given your entry time:
+
+| Output | Description |
+|---|---|
+| **Coffee break** | Suggested first break (+1h) |
+| **Lunch start** | +4h after entry |
+| **Lunch end** | +1h after lunch start |
+| **Normal exit** | Entry + 8h48 work + 1h lunch |
+| **Maximum exit** | Entry + 10h work + 1h lunch |
+
+<!-- <img src="images/time-calculator.png" alt="Time calculator" width="750"> -->
+> 📸 *Screenshot placeholder — add `images/time-calculator.png`*
+
+### Customizing `whoami`
+
+Edit `console.go` and update the `whoamiText` constant to personalize your user info:
+
+```go
+const whoamiText = `
+  Your Name
+  Your Role
+  GitHub: github.com/yourhandle
+  ...
+`
+```
+
+---
+
 ## Supported Languages
 
 Syntax highlighting uses **Chroma** with the **GitHub Dark** theme. Each file shows a colored extension badge.
@@ -606,9 +765,11 @@ Syntax highlighting uses **Chroma** with the **GitHub Dark** theme. Each file sh
 
 | File | Description |
 |---|---|
-| `main.go` | Entry point — parses CLI args, creates snippets dir, starts Bubbletea |
+| `main.go` | Entry point — splash or direct launch, creates snippets dir, starts Bubbletea |
+| `splash.go` | ASCII art splash screen shown when no CLI argument is provided |
+| `console.go` | `whoamiText` and `helpConsoleText` constants — edit here to customize |
 | `dirs.go` | Resolves `%USERPROFILE%\clidocs_snippets` default path |
-| `model.go` | App state struct, folder/file/subfolder loading, message types |
+| `model.go` | App state struct, folder/file/subfolder loading, helpers |
 | `update.go` | All keyboard handling, modal state machine, editor/sync launch |
 | `view.go` | Three-panel layout, modal overlays, status bar renderer |
 | `styles.go` | All Lipgloss styles — GitHub Dark color palette |
@@ -627,6 +788,7 @@ Syntax highlighting uses **Chroma** with the **GitHub Dark** theme. Each file sh
 | `github.com/charmbracelet/bubbletea` | TUI framework (Elm architecture) |
 | `github.com/charmbracelet/bubbles` | Text input component |
 | `github.com/charmbracelet/lipgloss` | Layout and styling |
+| `github.com/charmbracelet/glamour` | Markdown rendering (GitHub Dark style) |
 | `github.com/alecthomas/chroma/v2` | Syntax highlighting |
 | `github.com/atotto/clipboard` | Clipboard write support |
 
