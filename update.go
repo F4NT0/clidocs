@@ -15,10 +15,6 @@ import (
 
 type clearStatusMsg struct{}
 
-type dirPickerResultMsg struct {
-	dir string
-	err error
-}
 
 type moveFileResultMsg struct {
 	destFolder string
@@ -120,34 +116,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, clearStatusAfter(3 * time.Second)
 		}
 		return m, nil
-
-	case dirPickerResultMsg:
-		m.modal = modalNone
-		if msg.err != nil {
-			m.modal = modalError
-			m.modalError = msg.err.Error()
-			return m, nil
-		}
-		if msg.dir == "" {
-			m.statusMsg = "No directory selected."
-			return m, clearStatusAfter(3 * time.Second)
-		}
-		m.snippetsDir = msg.dir
-		m.folderCursor = 0
-		m.fileCursor = 0
-		m.inFavSection = false
-		m.favCursor = 0
-		if err := os.MkdirAll(msg.dir, 0755); err != nil {
-			m.modal = modalError
-			m.modalError = fmt.Sprintf("Cannot use directory: %v", err)
-			return m, nil
-		}
-		m.loadFolders()
-		m.loadFavorites()
-		m.loadFiles()
-		m.loadPreview()
-		m.statusMsg = "Snippets directory changed to: " + msg.dir
-		return m, clearStatusAfter(5 * time.Second)
 
 	case moveFileResultMsg:
 		m.modal = modalNone
@@ -546,13 +514,6 @@ func doMoveFile(srcPath, destDir, destFolder string) tea.Cmd {
 	}
 }
 
-func doPickDir() tea.Cmd {
-	return func() tea.Msg {
-		dir, err := openDirPicker()
-		return dirPickerResultMsg{dir: dir, err: err}
-	}
-}
-
 func clearStatusAfter(d time.Duration) tea.Cmd {
 	return tea.Tick(d, func(_ time.Time) tea.Msg {
 		return clearStatusMsg{}
@@ -698,15 +659,51 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// open explorer at snippets dir
 			_ = exec.Command("explorer.exe", filepath.FromSlash(m.snippetsDir)).Start()
 		case "s":
-			m.modal = modalChangeDirPicker
-			return m, doPickDir()
+			m.dirBrowser = newDirBrowser(m.snippetsDir)
+			m.modal = modalDirBrowser
 		case "esc", "q", "o":
 			m.modal = modalNone
 		}
 		return m, nil
 
-	case modalChangeDirPicker:
-		// waiting for async dir picker result, ignore keys
+	case modalDirBrowser:
+		switch msg.String() {
+		case "esc", "q":
+			m.modal = modalNone
+		case "up", "k":
+			m.dirBrowser.moveUp()
+		case "down", "j":
+			m.dirBrowser.moveDown()
+		case "left", "backspace":
+			m.dirBrowser.goUp()
+		case "right":
+			m.dirBrowser.enter()
+		case "enter":
+			picked := m.dirBrowser.cwd
+			if len(m.dirBrowser.entries) > 0 {
+				picked = m.dirBrowser.selectedPath()
+			}
+			m.modal = modalNone
+			if err := os.MkdirAll(picked, 0755); err != nil {
+				m.modal = modalError
+				m.modalError = fmt.Sprintf("Cannot use directory: %v", err)
+				return m, nil
+			}
+			if m.origSnippetsDir == "" {
+				m.origSnippetsDir = m.snippetsDir
+			}
+			m.snippetsDir = picked
+			m.folderCursor = 0
+			m.fileCursor = 0
+			m.inFavSection = false
+			m.favCursor = 0
+			m.loadFolders()
+			m.loadFavorites()
+			m.loadFiles()
+			m.loadPreview()
+			m.statusMsg = "Snippets directory changed to: " + picked
+			return m, clearStatusAfter(5 * time.Second)
+		}
 		return m, nil
 
 	case modalEditorReady:

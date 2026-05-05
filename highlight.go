@@ -49,18 +49,26 @@ func highlightCode(content, filename string) string {
 	return result
 }
 
-// renderMarkdown renders Markdown content using glamour with a dark theme.
+// renderMarkdown renders Markdown content using glamour.
 // width is the available terminal columns for word-wrapping.
 func renderMarkdown(content string, width int) string {
 	if width < 40 {
 		width = 40
 	}
 	r, err := glamour.NewTermRenderer(
-		glamour.WithStylePath("dark"),
+		glamour.WithAutoStyle(),
 		glamour.WithWordWrap(width),
+		glamour.WithEmoji(),
 	)
 	if err != nil {
-		return content
+		// fallback: try dark style explicitly
+		r, err = glamour.NewTermRenderer(
+			glamour.WithStylePath("dark"),
+			glamour.WithWordWrap(width),
+		)
+		if err != nil {
+			return content
+		}
 	}
 	out, err := r.Render(content)
 	if err != nil {

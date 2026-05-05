@@ -596,14 +596,6 @@ func (m model) renderDirInfoModal() string {
 	)
 }
 
-func (m model) renderChangeDirPickerModal() string {
-	title := modalTitleStyle.Render(" Change Directory")
-	info := lipgloss.NewStyle().Foreground(colorFg).Render("Opening folder picker...")
-	sub := mutedStyle.Render("Select a new directory to use as snippets root.")
-	return modalStyle.Render(
-		lipgloss.JoinVertical(lipgloss.Left, title, "", info, sub),
-	)
-}
 
 func (m model) renderDeleteConfirmModal() string {
 	ext, extColor := getFileIcon(m.currentFileName())
@@ -717,8 +709,8 @@ func (m model) renderWithModal() string {
 		modal = m.renderMoveFileModal()
 	case modalDirInfo:
 		modal = m.renderDirInfoModal()
-	case modalChangeDirPicker:
-		modal = m.renderChangeDirPickerModal()
+	case modalDirBrowser:
+		modal = m.renderDirBrowserModal()
 	case modalFavorites:
 		modal = m.renderFavoritesModal()
 	case modalRenameFolder:

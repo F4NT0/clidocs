@@ -14,13 +14,9 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 
 </div>
 
-<!-- ============================================================ -->
-<!--  SCREENSHOT — replace the src with your actual image path   -->
-<!-- ============================================================ -->
 <div align="center">
 
-<!-- <img src="images/screenshot-main.png" alt="clidocs main interface" width="900"> -->
-> 📸 *Screenshot placeholder — add `images/screenshot-main.png`*
+<img src="images/screenshot-main.png" alt="clidocs main interface" width="900">
 
 </div>
 
@@ -125,13 +121,29 @@ go build -o clidocs.exe .
 
 # Run
 .\clidocs.exe
+
+# Install globally into the computer
+.\clidocs-install.exe
+
 ```
 
-**Add to PATH permanently:**
+### How to install globally into the windows
 
-```powershell
-Copy-Item .\clidocs.exe "$env:USERPROFILE\AppData\Local\Microsoft\WindowsApps\clidocs.exe"
-```
+> Run `.\clidocs-install.exe` as administrator
+
+<img src="images/instalador-pagina-inicial.png" alt="clidocs installer" width="400">
+
+> Select the installation path and click "Next"
+
+<img src="images/instalador-local-salvar.png" alt="clidocs installer" width="400">
+
+> If there's already an .exe in the location (to update), it will ask if you want to replace it.
+
+<img src="images/instalador-update-exe.png" alt="clidocs installer" width="400">
+
+> After change there's a success
+
+<img src="images/instalador-sucesso.png" alt="clidocs installer" width="400">
 
 After that, open any PowerShell window and type `clidocs`.
 
@@ -160,37 +172,16 @@ clidocs .\docs\snippets
 
 When you run `clidocs` **without any arguments**, an ASCII art welcome screen is shown:
 
-```
- ██████╗██╗     ██╗██████╗  ██████╗  ██████╗███████╗
-██╔════╝██║     ██║██╔══██╗██╔═══██╗██╔════╝██╔════╝
-██║     ██║     ██║██║  ██║██║   ██║██║     ███████╗
-██║     ██║     ██║██║  ██║██║   ██║██║     ╚════██║
-╚██████╗███████╗██║██████╔╝╚██████╔╝╚██████╗███████║
- ╚═════╝╚══════╝╚═╝╚═════╝  ╚═════╝  ╚═════╝╚══════╝
-```
-
-Use `↑↓` to choose between:
-
-| Option | Action |
-|---|---|
-| **Open default snippets directory** | Launches with `%USERPROFILE%\clidocs_snippets` |
-| **Browse for a directory...** | Opens a Windows Explorer-style folder picker |
-
-Press `Enter` to confirm or `Ctrl+C` to quit.
+<img src="images/screenshot-main.png" alt="main screen" width="400">
 
 > The splash screen is **skipped** when you pass a path argument: `clidocs .` or `clidocs <path>`.
-
-<!-- <img src="images/splash-screen.png" alt="Splash screen" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/splash-screen.png`*
-
 ---
 
 ## Interface
 
 <div align="center">
 
-<!-- <img src="images/visualization.png" alt="clidocs interface" width="900"> -->
-> 📸 *Screenshot placeholder — add `images/visualization.png`*
+<img src="images/visualization.png" alt="clidocs interface" width="900">
 
 </div>
 
@@ -343,8 +334,7 @@ Press `Enter` to confirm or `Ctrl+C` to quit.
 1. Focus the **Folders** panel
 2. Press `n` → type the folder name → `Enter` to confirm, `Esc` to cancel
 
-<!-- <img src="images/create-new-folder.png" alt="Create folder" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/create-new-folder.png`*
+<img src="images/create-new-folder.png" alt="Create folder" width="750">
 
 ### Rename a folder
 
@@ -353,8 +343,7 @@ Press `Enter` to confirm or `Ctrl+C` to quit.
 3. Edit the name → `Enter` to confirm, `Esc` to cancel
 4. Favorites referencing the folder are updated automatically
 
-<!-- <img src="images/rename-folder.png" alt="Rename folder" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/rename-folder.png`*
+<img src="images/rename-folder.png" alt="Rename folder" width="750">
 
 ### Delete a folder
 
@@ -364,14 +353,15 @@ Press `Enter` to confirm or `Ctrl+C` to quit.
 
 > **Warning:** Deletion is permanent and recursive — all files and subfolders inside are removed from disk.
 
-<!-- <img src="images/delete-folder.png" alt="Delete folder" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/delete-folder.png`*
+<img src="images/delete-folder.png" alt="Delete folder" width="750">
 
 ---
 
 ## Subfolder Navigation
 
 Folders that contain subfolders display a `›` indicator next to their name.
+
+<img src="images/subfolder-navigation.png" alt="Subfolder indicator" width="750">
 
 ### Browsing subfolders
 
@@ -382,6 +372,8 @@ Folders that contain subfolders display a `›` indicator next to their name.
 5. Press `Enter` on a **file** — it loads directly in the Preview panel
 6. Press `Backspace` to go up one level (or close the modal when at root)
 7. Press `Esc` to close at any time
+
+<img src="images/subfolder-snippets.png" alt="Subfolder snippets" width="750">
 
 ### Going back up
 
@@ -394,11 +386,7 @@ Press `←` (left arrow) on the **Folders panel** to go back to the parent direc
 2. Press `N` — a modal asks for the new subfolder name
 3. Press `Enter` to create, `Esc` to cancel
 
-<!-- <img src="images/subfolder-nav.png" alt="Subfolder navigation" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/subfolder-nav.png`*
-
-<!-- <img src="images/subfolder-back.png" alt="Subfolder back navigation" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/subfolder-back.png`*
+<img src="images/subfolder-creation.png" alt="Subfolder creation" width="750">
 
 ---
 
@@ -411,8 +399,7 @@ Press `←` (left arrow) on the **Folders panel** to go back to the parent direc
 5. Press `Enter` to confirm selection and switch to that folder's snippets
 6. Press `Esc` to cancel and restore the full list
 
-<!-- <img src="images/folder-search.png" alt="Folder search" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/folder-search.png`*
+<img src="images/search-folders.png" alt="Folder search" width="750">
 
 ---
 
@@ -425,8 +412,8 @@ Press `←` (left arrow) on the **Folders panel** to go back to the parent direc
 3. **Step 1** — Enter the file name (without extension) → `Enter` or `Tab`
 4. **Step 2** — Enter the extension (e.g. `go`, `py`, `md`) → `Enter` to create and open
 
-<!-- <img src="images/create-new-file.png" alt="Create file" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/create-new-file.png`*
+<img src="images/create-new-file.png" alt="Create file" width="750">
+
 
 ### Rename a snippet
 
@@ -434,8 +421,7 @@ Press `←` (left arrow) on the **Folders panel** to go back to the parent direc
 2. Press `r` — a modal appears with the current filename pre-filled
 3. Edit the name → `Enter` to confirm, `Esc` to cancel
 
-<!-- <img src="images/rename-file.png" alt="Rename file" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/rename-file.png`*
+<img src="images/rename-file.png" alt="Rename file" width="750">
 
 ### Delete a file
 
@@ -445,8 +431,7 @@ Press `←` (left arrow) on the **Folders panel** to go back to the parent direc
 
 > **Warning:** Deletion is permanent.
 
-<!-- <img src="images/delete-file.png" alt="Delete file" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/delete-file.png`*
+<img src="images/delete-file.png" alt="Delete file" width="750">
 
 ### Move a file to another folder
 
@@ -455,8 +440,7 @@ Press `←` (left arrow) on the **Folders panel** to go back to the parent direc
 3. A modal lists all other folders — navigate with `↑↓`
 4. Press `Enter` to move the file
 
-<!-- <img src="images/move-file.png" alt="Move file" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/move-file.png`*
+<img src="images/move-file.png" alt="Move file" width="750">
 
 ### Inline File Search
 
@@ -466,8 +450,7 @@ Press `←` (left arrow) on the **Folders panel** to go back to the parent direc
 4. Use `↑`/`↓` to navigate filtered results — **preview updates live**
 5. Press `Enter` to confirm selection, `Esc` to cancel
 
-<!-- <img src="images/search-filter-snippets.png" alt="Inline file search" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/search-filter-snippets.png`*
+<img src="images/search-filter-snippets.png" alt="Inline file search" width="750">
 
 ---
 
@@ -479,11 +462,7 @@ The Preview panel shows the syntax-highlighted content of the selected file with
 
 When a file is loaded — either from the Snippets panel or via the Subfolder Navigator — the **full absolute path** is displayed in orange below the file title:
 
-```
- go  main.go
-───────────────────────────────────────────
- C:\Users\You\clidocs_snippets\Go\main.go
-```
+<img src="images/file-path-indicator.png" alt="File path indicator" width="750">
 
 ### Open actions
 
@@ -503,15 +482,13 @@ When a file is loaded — either from the Snippets panel or via the Subfolder Na
 4. Press `n` / `N` to cycle through hits
 5. Press `Esc` to close
 
-<!-- <img src="images/search-word-visualization.png" alt="Preview word search" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/search-word-visualization.png`*
+<img src="images/search-word-visualization.png" alt="Preview word search" width="750">
 
 ### Line Numbers
 
 Press `L` to toggle line numbers. When active, matched search lines show their number in orange (current) or green (other hits).
 
-<!-- <img src="images/Show_Line_Numbers.png" alt="Line numbers" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/Show_Line_Numbers.png`*
+<img src="images/Show_Line_Numbers.png" alt="Line numbers" width="750">
 
 ### Markdown Preview
 
@@ -533,12 +510,13 @@ A **`[MD]`** badge appears in the preview panel title when a markdown file is ac
 
 > **Note:** LaTeX math formulas (`$x^2$`, `$$\int$$`) are not rendered — the terminal has no math engine. Write formulas as ASCII (`x²`) or use fenced code blocks (` ```math `).
 
-<!-- <img src="images/markdown-preview.png" alt="Markdown preview" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/markdown-preview.png`*
+<img src="images/markdown-preview.png" alt="Markdown preview" width="750">
 
 ### Copy to clipboard
 
 Press `c` in the Preview panel to copy the entire file content to the system clipboard. A green status message confirms the action.
+
+<img src="images/copy-to-clipboard.png" alt="Copy to clipboard" width="750">
 
 ---
 
@@ -554,8 +532,7 @@ Favorites let you bookmark frequently-used folders and jump to them instantly.
 
 > Favorites are saved to `.clidocs_favorites.json` inside the snippets directory and persist across sessions.
 
-<!-- <img src="images/folder-favorites.png" alt="Folder favorites" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/folder-favorites.png`*
+<img src="images/folder-favorites.png" alt="Folder favorites" width="750">
 
 ### Navigating favorites
 
@@ -564,8 +541,7 @@ Favorites let you bookmark frequently-used folders and jump to them instantly.
 3. Press `f` inside the modal to unfavorite the selected entry
 4. Press `Esc` or `F` to close
 
-<!-- <img src="images/favorites-modal.png" alt="Favorites modal" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/favorites-modal.png`*
+<img src="images/favorites-modal.png" alt="Favorites modal" width="750">
 
 ### Returning to the home directory
 
@@ -586,8 +562,7 @@ Press `o` (on Folders or Snippets panel) to open the directory info modal.
 
 > Changing the directory takes effect immediately. The original default directory (`%USERPROFILE%\clidocs_snippets`) is never deleted.
 
-<!-- <img src="images/snippet-directory.png" alt="Snippets directory" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/snippet-directory.png`*
+<img src="images/snippet-directory.png" alt="Snippets directory" width="750">
 
 ---
 
@@ -595,25 +570,9 @@ Press `o` (on Folders or Snippets panel) to open the directory info modal.
 
 When you press `Enter` on a file in the Snippets panel (or `e` in the Preview panel), clidocs opens **Neovim in a new Windows Terminal window**:
 
-```
- Open in Neovim
-
- md  Comments.md
-──────────────────────────────────────────────
- Opens Neovim in a new Windows Terminal window.
-
-1. Edit your file in Neovim
-2. Save and exit Neovim   :wq
-3. Close the terminal tab  exit
-4. Back here, press        r  to reload preview
-
-Enter: open editor  Esc: cancel
-```
+<img src="images/open-in-neovim.png" alt="Open in Neovim" width="750">
 
 > **Fallback:** If Windows Terminal (`wt`) is not available, Neovim takes over the current terminal.
-
-<!-- <img src="images/open-in-neovim.png" alt="Open in Neovim" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/open-in-neovim.png`*
 
 ---
 
@@ -628,14 +587,15 @@ Copy any file from your computer into the currently selected folder:
 
 > Supports **multi-selection** — hold `Ctrl` or `Shift` in the dialog.
 
-<!-- <img src="images/import-file.png" alt="Import file" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/import-file.png`*
+<img src="images/import-file.png" alt="Import file" width="750">
 
 ---
 
 ## GitHub Sync
 
 Back up and share your snippets by syncing to a GitHub repository.
+
+<img src="images/sync-git.png" alt="GitHub sync" width="750">
 
 ### First use
 
@@ -649,6 +609,8 @@ Press `g` — a setup modal appears:
 
 Navigate fields with `Enter` or `Tab` / `Shift+Tab`. Config is saved to `.clidocs_git.json`.
 
+<img src="images/sync-config.png" alt="Sync configuration" width="750">
+
 ### How sync works
 
 1. `git init` (first time only)
@@ -660,13 +622,11 @@ Navigate fields with `Enter` or `Tab` / `Shift+Tab`. Config is saved to `.clidoc
 
 Press `G` at any time to update the repo URL, username, or email.
 
-<!-- <img src="images/sync-configuration.png" alt="Git configuration" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/sync-configuration.png`*
+<img src="images/sync-config.png" alt="Git configuration" width="750">
 
 > **Note:** The repository must exist on GitHub before syncing. For private repos, ensure credentials are cached via [Git Credential Manager](https://github.com/git-ecosystem/git-credential-manager) or SSH.
 
-<!-- <img src="images/sync-image1.png" alt="GitHub sync" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/sync-image1.png`*
+<img src="images/sync-complete.png" alt="GitHub sync" width="750">
 
 ---
 
@@ -674,8 +634,7 @@ Press `G` at any time to update the repo URL, username, or email.
 
 Press `:` from **any panel** to open the `Cmdline` console — a command-line interface inside clidocs.
 
-<!-- <img src="images/console.png" alt="Console easter egg" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/console.png`*
+<img src="images/cmdline-screen.png" alt="Console easter egg" width="750">
 
 ### Available commands
 
@@ -699,8 +658,7 @@ Based on a standard workday of **8h48** (with 1h lunch), given your entry time:
 | **Normal exit** | Entry + 8h48 work + 1h lunch |
 | **Maximum exit** | Entry + 10h work + 1h lunch |
 
-<!-- <img src="images/time-calculator.png" alt="Time calculator" width="750"> -->
-> 📸 *Screenshot placeholder — add `images/time-calculator.png`*
+<img src="images/cmdline-work-hours.png" alt="Time calculator" width="750">
 
 ### Customizing `whoami`
 
@@ -714,6 +672,8 @@ const whoamiText = `
   ...
 `
 ```
+
+<img src="images/cmdline-whoami.png" alt="Whoami command" width="750">
 
 ---
 
@@ -792,10 +752,18 @@ Syntax highlighting uses **Chroma** with the **GitHub Dark** theme. Each file sh
 | `github.com/alecthomas/chroma/v2` | Syntax highlighting |
 | `github.com/atotto/clipboard` | Clipboard write support |
 
+### How to install de dependencies
+
+```bash
+go mod tidy
+```
+
 ---
 
 <div align="center">
 
 Made with ☕ and Go · Dark theme · Keyboard-first
+
+Created by Gabriel Stundner
 
 </div>

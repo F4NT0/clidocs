@@ -38,7 +38,6 @@ const (
 	modalDeleteConfirm
 	modalMoveFile
 	modalDirInfo
-	modalChangeDirPicker
 	modalFavorites
 	modalRenameFolder
 	modalDeleteFolder
@@ -50,6 +49,7 @@ const (
 	modalWhoami
 	modalHelpConsole
 	modalNewSubfolder
+	modalDirBrowser
 )
 
 type fileEntry struct {
@@ -139,6 +139,9 @@ type model struct {
 
 	// folder panel dir-stack navigation (← goes back)
 	folderDirStack []string // previous snippetsDirs pushed when descending into subfolder
+
+	// in-TUI directory browser (replaces PowerShell folder picker)
+	dirBrowser dirBrowser
 
 	// splash shown only when no CLI arg
 	showSplash bool

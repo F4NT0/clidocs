@@ -47,15 +47,26 @@ func main() {
 
 	chosenDir := sm.chosenDir
 	if sm.browsePick {
-		// Open the folder picker outside the TUI so the COM dialog gets a
-		// proper STA thread context on Windows.
-		picked, err := openDirPicker()
-		if err != nil || picked == "" {
+		// Run the in-TUI directory browser as a separate program phase.
+		startDir := getSnippetsDir()
+		// Try to use the parent of the default snippets dir as a good root.
+		if parent := filepath.Dir(startDir); parent != startDir {
+			startDir = parent
+		}
+		db := newSplashDirBrowser(startDir)
+		p2 := tea.NewProgram(db, tea.WithAltScreen())
+		result, err := p2.Run()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		res, ok := result.(splashDirBrowserModel)
+		if !ok || res.cancelled || res.chosen == "" {
 			// cancelled — go back to splash
 			main()
 			return
 		}
-		chosenDir = picked
+		chosenDir = res.chosen
 	}
 	runApp(chosenDir)
 }
