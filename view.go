@@ -443,6 +443,11 @@ func (m model) renderPreviewPanel(w, h int) string {
 		}
 	}
 
+	// Hard-clamp contentLines to availH so long files never overflow the panel
+	if len(contentLines) > headerLines+availH {
+		contentLines = contentLines[:headerLines+availH]
+	}
+
 	content := strings.Join(contentLines, "\n")
 
 	style := panelStyle
@@ -513,75 +518,97 @@ func (m model) renderGitSuccessModal() string {
 }
 
 func (m model) renderEditorReadyModal() string {
-	filename := ""
-	if m.editorPath != "" {
-		parts := strings.Split(strings.ReplaceAll(m.editorPath, "\\", "/"), "/")
-		filename = parts[len(parts)-1]
-	}
-	icon, iconColor := getFileIcon(filename)
-	iconStr := lipgloss.NewStyle().Foreground(iconColor).Render(icon)
+	title := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7b72")).Bold(true).Render(" Neovim not found")
+	sep := mutedStyle.Render(strings.Repeat("─", 52))
 
-	title := modalTitleStyle.Render(" Open in Neovim")
-	fileStr := lipgloss.NewStyle().Foreground(colorFg).Render(iconStr + " " + filename)
-	sep := mutedStyle.Render(strings.Repeat("─", 46))
+	warn := lipgloss.NewStyle().Foreground(colorFg).Render(
+		"nvim was not found in your PATH.")
 
-	info := lipgloss.NewStyle().Foreground(colorFg).Render(
-		" Opens Neovim in a new Windows Terminal window.",
-	)
-	step1 := mutedStyle.Render("1. Edit your file in Neovim")
-	step2 := mutedStyle.Render("2. Save and exit Neovim   " + lipgloss.NewStyle().Foreground(colorFgSelected).Render(":wq"))
-	step3 := mutedStyle.Render("3. Close the terminal tab  " + lipgloss.NewStyle().Foreground(colorFgSelected).Bold(true).Render("exit"))
-	step4 := mutedStyle.Render("4. Back here, press        " + lipgloss.NewStyle().Foreground(colorFgSelected).Bold(true).Render("r") + mutedStyle.Render("  to reload preview"))
+	hl := lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true)
+	mut := mutedStyle
 
-	help := helpStyle.Render("Enter: open editor  Esc: cancel")
+	win1 := mut.Render("  Winget (recommended):")
+	win2 := hl.Render("    winget install Neovim.Neovim")
+	win3 := mut.Render("  Scoop:")
+	win4 := hl.Render("    scoop install neovim")
+	win5 := mut.Render("  Chocolatey:")
+	win6 := hl.Render("    choco install neovim")
+	win7 := mut.Render("  Manual: https://github.com/neovim/neovim/releases")
+
+	alternate := mut.Render("Or open files with another editor:")
+	vsCodeHint := hl.Render("    code <file>") + mut.Render("  (VS Code, if installed)")
+
+	help := helpStyle.Render("Esc / Enter: close")
 
 	return modalStyle.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
-			title,
-			"",
-			fileStr,
-			sep,
-			info,
-			"",
-			step1,
-			step2,
-			step3,
-			step4,
+			title, "",
+			warn, sep,
+			mut.Render("Install Neovim for Windows:"), "",
+			win1, win2, "",
+			win3, win4, "",
+			win5, win6, "",
+			win7, sep,
+			alternate, vsCodeHint, "",
 			help,
 		),
 	)
 }
 
 func (m model) renderMoveFileModal() string {
-	destinations := m.moveDestinations()
+	destinations := m.moveDestinationsAll()
 
 	ext, extColor := getFileIcon(m.currentFileName())
 	badge := lipgloss.NewStyle().Foreground(extColor).Render(ext)
 	name := lipgloss.NewStyle().Foreground(colorFg).Render(m.currentFileName())
 	title := modalTitleStyle.Render(" Move File")
-	filesep := mutedStyle.Render(strings.Repeat("─", 44))
+	filesep := mutedStyle.Render(strings.Repeat("─", 48))
 
 	var rows []string
 	rows = append(rows, title, "", badge+"  "+name, filesep, "")
 
-	if len(destinations) == 0 {
-		rows = append(rows, mutedStyle.Render("No other folders available."))
-	} else {
-		for i, f := range destinations {
-			folderIcon := mutedStyle.Render(" ")
+	const maxVisible = 12
+	scrollStart := 0
+	totalItems := len(destinations) + 1 // +1 for Browse external
+	if m.moveCursor >= scrollStart+maxVisible {
+		scrollStart = m.moveCursor - maxVisible + 1
+	}
+
+	for i := scrollStart; i < totalItems && i < scrollStart+maxVisible; i++ {
+		folderIcon := mutedStyle.Render(" ")
+		if i == len(destinations) {
+			// Browse external entry
 			if i == m.moveCursor {
 				arrow := lipgloss.NewStyle().Foreground(colorOrange).Render("> ")
-				nameStr := lipgloss.NewStyle().Foreground(colorAccentBlue).Render(f)
-				rows = append(rows, arrow+folderIcon+nameStr)
+				rows = append(rows, arrow+lipgloss.NewStyle().Foreground(colorAccentBlue).Render(" Browse external folder..."))
 			} else {
-				nameStr := lipgloss.NewStyle().Foreground(colorFg).Render(f)
-				rows = append(rows, "   "+folderIcon+nameStr)
+				rows = append(rows, "   "+mutedStyle.Render(" Browse external folder..."))
 			}
+			continue
 		}
+		dest := destinations[i]
+		indent := strings.Repeat("  ", dest.depth)
+		label := truncate(dest.label, 44-len(indent))
+		if i == m.moveCursor {
+			arrow := lipgloss.NewStyle().Foreground(colorOrange).Render("> ")
+			nameStr := lipgloss.NewStyle().Foreground(colorAccentBlue).Render(indent+label)
+			rows = append(rows, arrow+folderIcon+nameStr)
+		} else {
+			nameStr := lipgloss.NewStyle().Foreground(colorFg).Render(indent+label)
+			rows = append(rows, "   "+folderIcon+nameStr)
+		}
+	}
+
+	if len(destinations) == 0 {
+		rows = append(rows, mutedStyle.Render("No subfolders available."))
 	}
 
 	rows = append(rows, "", helpStyle.Render("↑↓: select folder   Enter: move   Esc: cancel"))
 	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
+}
+
+func (m model) renderMoveFileBrowseModal() string {
+	return m.renderDirBrowserModal()
 }
 
 func (m model) renderDirInfoModal() string {
@@ -669,7 +696,7 @@ func (m model) renderStatusBar() string {
 		case panelFiles:
 			help = "↑↓: files  Enter: edit  /: search  n: new  r: rename  m: move  c: import  d: delete  g: sync  G: git config  Tab: next panel"
 		case panelPreview:
-			help = "↑↓: scroll  /: find  L: line numbers  c: copy  e: nvim  v: vscode  o: open folder  g: sync  Tab: next panel  q: quit"
+			help = "↑↓: scroll  /: find  L: line numbers  c: copy  e: edit in nvim  o: open folder  g: sync  Tab: next panel  q: quit"
 		}
 	}
 	return lipgloss.NewStyle().
@@ -707,6 +734,8 @@ func (m model) renderWithModal() string {
 		modal = m.renderDeleteConfirmModal()
 	case modalMoveFile:
 		modal = m.renderMoveFileModal()
+	case modalMoveFileBrowse:
+		modal = m.renderMoveFileBrowseModal()
 	case modalDirInfo:
 		modal = m.renderDirInfoModal()
 	case modalDirBrowser:
@@ -746,8 +775,8 @@ func (m model) renderFavoritesModal() string {
 	if len(m.favorites) == 0 {
 		rows = append(rows, mutedStyle.Render("No favorites yet"))
 	} else {
-		for i, name := range m.favorites {
-			label := truncate(name, 38)
+		for i, absPath := range m.favorites {
+			label := truncate(m.favDisplayLabel(absPath), 38)
 			if i == m.favCursor {
 				rows = append(rows,
 					arrowStyle.Render("> ")+

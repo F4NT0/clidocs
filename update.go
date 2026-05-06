@@ -42,48 +42,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case openEditorMsg:
 		_, err := exec.LookPath("nvim")
 		if err != nil {
-			m.modal = modalError
-			m.modalError = "Neovim (nvim) not found in PATH.\nPlease install and configure Neovim to edit files."
+			m.modal = modalEditorReady
 			return m, nil
 		}
-		m.modal = modalEditorReady
-		m.editorPath = msg.path
-		return m, nil
-
-	case launchEditorMsg:
-		// Try to open in a new Windows Terminal window
-		wt, wtErr := exec.LookPath("wt")
-		if wtErr == nil {
-			// wt opens a new window; pwsh stays open after nvim exits
-			pwsh := "pwsh"
-			if _, err := exec.LookPath("pwsh"); err != nil {
-				pwsh = "powershell"
-			}
-			safePath := strings.ReplaceAll(msg.path, `"`, `\"`)
-			wtArgs := []string{
-				"--window", "new",
-				"new-tab",
-				"--title", "clidocs editor",
-				pwsh,
-				"-NoLogo", "-NoExit",
-				"-Command", fmt.Sprintf(`nvim "%s"`, safePath),
-			}
-			c := exec.Command(wt, wtArgs...)
-			if err := c.Start(); err == nil {
-				// WT launched detached — immediately return to TUI
-				// Reload preview after a short moment when user comes back
-				m.statusMsg = "Editing in new Windows Terminal window — reload with r"
-				return m, nil
-			}
-		}
-		// Fallback: take over the current terminal (old behaviour)
-		pwsh := "pwsh"
-		if _, err := exec.LookPath("pwsh"); err != nil {
-			pwsh = "powershell"
-		}
-		safePath := strings.ReplaceAll(msg.path, `"`, `\"`)
-		args := []string{"-NoLogo", "-NoExit", "-Command", fmt.Sprintf(`nvim "%s"`, safePath)}
-		c := exec.Command(pwsh, args...)
+		// Launch nvim directly in the current terminal via tea.ExecProcess
+		c := exec.Command("nvim", msg.path)
 		c.Stdin = os.Stdin
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr
@@ -250,17 +213,18 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case panelFolders:
 			folderName := m.currentFolderName()
 			if folderName != "" {
-				if m.hasSubfolders(folderName) {
-					m.subNavStack = []string{folderName}
-					m.subNavCursor = 0
-					m.loadSubNavEntries()
-					m.modal = modalSubfolderNav
-				} else {
-					m.activePanel = panelFiles
-					m.fileCursor = 0
-					m.loadFiles()
-					m.loadPreview()
-				}
+				// Always navigate directly into the folder
+				newRoot := filepath.Join(m.snippetsDir, folderName)
+				m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
+				m.snippetsDir = newRoot
+				m.folderCursor = 0
+				m.fileCursor = 0
+				m.loadFolders()
+				m.loadFiles()
+				m.loadPreview()
+				m.statusMsg = "Navigated into: " + folderName + "  (← to go back)"
+				m.statusIsSuccess = true
+				return m, clearStatusAfter(4 * time.Second)
 			}
 		case panelFiles:
 			if len(m.files) > 0 {
@@ -354,9 +318,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "m":
 		// move current file to another folder
-		if m.activePanel == panelFiles && len(m.files) > 0 && len(m.folders) > 1 {
+		if m.activePanel == panelFiles && len(m.files) > 0 {
 			m.moveCursor = 0
-			// skip current folder in selection — handled in modal render
 			m.modal = modalMoveFile
 		}
 
@@ -385,15 +348,6 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// open current preview file in Neovim
 		if m.previewFilePath != "" {
 			return m, openNeovim(m.previewFilePath)
-		}
-
-	case "v":
-		// open current preview file in VS Code
-		if m.previewFilePath != "" {
-			_ = exec.Command("code", m.previewFilePath).Start()
-			m.statusMsg = "Opened in VS Code"
-			m.statusIsSuccess = true
-			return m, clearStatusAfter(3 * time.Second)
 		}
 
 	case "o":
@@ -497,6 +451,51 @@ func (m model) moveDestinations() []string {
 	return dest
 }
 
+// moveDestEntry is a single destination option in the hierarchical move-file list.
+type moveDestEntry struct {
+	label   string // display label (relative path from snippetsDir)
+	absPath string // absolute destination directory
+	depth   int    // indentation depth
+}
+
+// moveDestinationsAll returns a flat list of all folders and subfolders under
+// snippetsDir (recursively), excluding the directory that contains the current file.
+func (m model) moveDestinationsAll() []moveDestEntry {
+	currentFilePath := m.currentFilePath()
+	currentDir := ""
+	if currentFilePath != "" {
+		currentDir = filepath.Dir(currentFilePath)
+	}
+	var entries []moveDestEntry
+	var walk func(dir string, depth int)
+	walk = func(dir string, depth int) {
+		children, err := os.ReadDir(dir)
+		if err != nil {
+			return
+		}
+		for _, e := range children {
+			if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+				continue
+			}
+			childAbs := filepath.Join(dir, e.Name())
+			rel, err := filepath.Rel(m.snippetsDir, childAbs)
+			if err != nil {
+				rel = e.Name()
+			}
+			if childAbs != currentDir {
+				entries = append(entries, moveDestEntry{
+					label:   rel,
+					absPath: childAbs,
+					depth:   depth,
+				})
+			}
+			walk(childAbs, depth+1)
+		}
+	}
+	walk(m.snippetsDir, 0)
+	return entries
+}
+
 func doMoveFile(srcPath, destDir, destFolder string) tea.Cmd {
 	return func() tea.Msg {
 		name := filepath.Base(srcPath)
@@ -596,6 +595,13 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case modalEditorReady:
+		switch msg.String() {
+		case "enter", "esc", "q":
+			m.modal = modalNone
+		}
+		return m, nil
+
 	case modalGitSyncing:
 		// waiting for async result, ignore keys
 		return m, nil
@@ -628,28 +634,63 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case modalMoveFile:
-		// build list of folders excluding current
-		destinations := m.moveDestinations()
+		// build hierarchical list of all folders/subfolders
+		destinations := m.moveDestinationsAll()
+		// +1 for the "Browse external..." entry at the end
+		totalItems := len(destinations) + 1
 		switch msg.String() {
 		case "up", "k":
 			if m.moveCursor > 0 {
 				m.moveCursor--
 			}
 		case "down", "j":
-			if m.moveCursor < len(destinations)-1 {
+			if m.moveCursor < totalItems-1 {
 				m.moveCursor++
 			}
 		case "enter":
+			if m.moveCursor == len(destinations) {
+				// Browse external folder
+				m.dirBrowser = newDirBrowser(m.snippetsDir)
+				m.modal = modalMoveFileBrowse
+				return m, nil
+			}
 			if len(destinations) == 0 {
 				m.modal = modalNone
 				return m, nil
 			}
-			destFolder := destinations[m.moveCursor]
+			dest := destinations[m.moveCursor]
 			srcPath := m.currentFilePath()
-			destDir := filepath.Join(m.snippetsDir, destFolder)
-			return m, doMoveFile(srcPath, destDir, destFolder)
+			return m, doMoveFile(srcPath, dest.absPath, dest.label)
 		case "esc", "q":
 			m.modal = modalNone
+		}
+		return m, nil
+
+	case modalMoveFileBrowse:
+		switch msg.String() {
+		case "esc", "q":
+			m.modal = modalMoveFile
+		case "up", "k":
+			m.dirBrowser.moveUp()
+		case "down", "j":
+			m.dirBrowser.moveDown()
+		case "left", "backspace":
+			m.dirBrowser.goUp()
+		case "right":
+			m.dirBrowser.enter()
+		case "enter":
+			picked := m.dirBrowser.cwd
+			if len(m.dirBrowser.entries) > 0 {
+				picked = m.dirBrowser.selectedPath()
+			}
+			if err := os.MkdirAll(picked, 0755); err != nil {
+				m.modal = modalError
+				m.modalError = fmt.Sprintf("Cannot use directory: %v", err)
+				return m, nil
+			}
+			srcPath := m.currentFilePath()
+			folderLabel := filepath.Base(picked)
+			return m, doMoveFile(srcPath, picked, folderLabel)
 		}
 		return m, nil
 
@@ -703,17 +744,6 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.loadPreview()
 			m.statusMsg = "Snippets directory changed to: " + picked
 			return m, clearStatusAfter(5 * time.Second)
-		}
-		return m, nil
-
-	case modalEditorReady:
-		switch msg.String() {
-		case "enter":
-			m.modal = modalNone
-			path := m.editorPath
-			return m, func() tea.Msg { return launchEditorMsg{path: path} }
-		case "esc", "q":
-			m.modal = modalNone
 		}
 		return m, nil
 
@@ -950,10 +980,10 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.modalError = fmt.Sprintf("Could not rename folder: %v", err)
 				return m, nil
 			}
-			// update favorites if needed
+			// update favorites if needed (stored as abs paths)
 			for i, f := range m.favorites {
-				if f == oldName {
-					m.favorites[i] = newName
+				if f == oldPath {
+					m.favorites[i] = newPath
 					m.saveFavorites()
 					break
 				}
@@ -992,9 +1022,9 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.modalError = fmt.Sprintf("Could not delete folder: %v", err)
 				return m, nil
 			}
-			// remove from favorites
+			// remove from favorites (stored as abs paths)
 			for i, f := range m.favorites {
-				if f == name {
+				if f == path {
 					m.favorites = append(m.favorites[:i], m.favorites[i+1:]...)
 					m.saveFavorites()
 					break
@@ -1117,10 +1147,20 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		case "enter":
 			if m.favCursor < len(m.favorites) {
-				name := m.favorites[m.favCursor]
-				// find folder index in main list
+				absPath := m.favorites[m.favCursor]
+				// The favorite is an abs path to a folder.
+				// Navigate to its parent dir, then select the folder by name.
+				parentDir := filepath.Dir(absPath)
+				folderName := filepath.Base(absPath)
+				// Push dir stack and switch to parent
+				if parentDir != m.snippetsDir {
+					m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
+					m.snippetsDir = parentDir
+					m.loadFolders()
+				}
+				// find folder index
 				for i, f := range m.folders {
-					if f == name {
+					if f == folderName {
 						m.folderCursor = i
 						m.folderScroll = clampScroll(i, m.folderScroll, 10)
 						break
@@ -1134,10 +1174,16 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			m.modal = modalNone
 		case "f":
-			// unfavorite from modal
+			// unfavorite from modal — favorites store abs paths, remove directly
 			if m.favCursor < len(m.favorites) {
-				name := m.favorites[m.favCursor]
-				m.toggleFavorite(name)
+				absPath := m.favorites[m.favCursor]
+				for i, f := range m.favorites {
+					if f == absPath {
+						m.favorites = append(m.favorites[:i], m.favorites[i+1:]...)
+						m.saveFavorites()
+						break
+					}
+				}
 				if m.favCursor >= len(m.favorites) {
 					m.favCursor = max(0, len(m.favorites)-1)
 				}

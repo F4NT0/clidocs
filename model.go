@@ -50,6 +50,7 @@ const (
 	modalHelpConsole
 	modalNewSubfolder
 	modalDirBrowser
+	modalMoveFileBrowse
 )
 
 type fileEntry struct {
@@ -200,7 +201,13 @@ func clampScroll(cursor, scroll, visible int) int {
 const favoritesFile = ".clidocs_favorites.json"
 
 func (m *model) loadFavorites() {
-	path := filepath.Join(m.snippetsDir, favoritesFile)
+	// Favorites are stored in origSnippetsDir so they persist regardless of
+	// which subfolder is currently open.
+	root := m.origSnippetsDir
+	if root == "" {
+		root = m.snippetsDir
+	}
+	path := filepath.Join(root, favoritesFile)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		m.favorites = nil
@@ -215,14 +222,37 @@ func (m *model) loadFavorites() {
 }
 
 func (m *model) saveFavorites() {
-	path := filepath.Join(m.snippetsDir, favoritesFile)
+	root := m.origSnippetsDir
+	if root == "" {
+		root = m.snippetsDir
+	}
+	path := filepath.Join(root, favoritesFile)
 	data, _ := json.MarshalIndent(m.favorites, "", "  ")
 	_ = os.WriteFile(path, data, 0644)
 }
 
+// currentFolderAbsPath returns the absolute path of the currently selected folder.
+func (m *model) currentFolderAbsPath() string {
+	name := m.currentFolderName()
+	if name == "" {
+		return ""
+	}
+	return filepath.Join(m.snippetsDir, name)
+}
+
 func (m *model) isFavorite(name string) bool {
+	abs := filepath.Join(m.snippetsDir, name)
 	for _, f := range m.favorites {
-		if f == name {
+		if f == abs {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *model) isFavoriteAbs(absPath string) bool {
+	for _, f := range m.favorites {
+		if f == absPath {
 			return true
 		}
 	}
@@ -230,15 +260,29 @@ func (m *model) isFavorite(name string) bool {
 }
 
 func (m *model) toggleFavorite(name string) {
+	abs := filepath.Join(m.snippetsDir, name)
 	for i, f := range m.favorites {
-		if f == name {
+		if f == abs {
 			m.favorites = append(m.favorites[:i], m.favorites[i+1:]...)
 			m.saveFavorites()
 			return
 		}
 	}
-	m.favorites = append(m.favorites, name)
+	m.favorites = append(m.favorites, abs)
 	m.saveFavorites()
+}
+
+// favDisplayLabel returns a human-readable label for a favorite abs path.
+func (m *model) favDisplayLabel(absPath string) string {
+	root := m.origSnippetsDir
+	if root == "" {
+		root = m.snippetsDir
+	}
+	rel, err := filepath.Rel(root, absPath)
+	if err != nil {
+		return filepath.Base(absPath)
+	}
+	return filepath.ToSlash(rel)
 }
 
 // currentFolderInContext returns the folder name the cursor is currently on.
@@ -429,7 +473,6 @@ func openNeovim(path string) tea.Cmd {
 }
 
 type openEditorMsg struct{ path string }
-type launchEditorMsg struct{ path string }
 
 func max(a, b int) int {
 	if a > b {
