@@ -138,8 +138,22 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "left":
 		if m.activePanel == panelFolders {
-			// go back to parent dir if we navigated into a subfolder
-			if len(m.folderDirStack) > 0 {
+			if m.inParentView {
+				// exit parent-view mode back to normal folder list
+				m.inParentView = false
+				m.parentViewDir = ""
+				// restore folderCursor to the folder we came from
+				if len(m.folderDirStack) > 0 {
+					m.snippetsDir = m.folderDirStack[len(m.folderDirStack)-1]
+					m.folderDirStack = m.folderDirStack[:len(m.folderDirStack)-1]
+				}
+				m.folderCursor = 0
+				m.fileCursor = 0
+				m.loadFolders()
+				m.loadFiles()
+				m.loadPreview()
+			} else if len(m.folderDirStack) > 0 {
+				// go back to parent dir if we navigated into a subfolder
 				m.snippetsDir = m.folderDirStack[len(m.folderDirStack)-1]
 				m.folderDirStack = m.folderDirStack[:len(m.folderDirStack)-1]
 				m.folderCursor = 0
@@ -167,7 +181,16 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "up", "k":
 		switch m.activePanel {
 		case panelFolders:
-			if m.folderCursor > 0 {
+			if m.inParentView {
+				if m.folderCursor > 0 {
+					m.folderCursor--
+					m.folderScroll = clampScroll(m.folderCursor, m.folderScroll, 10)
+					m.fileCursor = 0
+					m.fileScroll = 0
+					m.loadFiles()
+					m.loadPreview()
+				}
+			} else if m.folderCursor > 0 {
 				m.folderCursor--
 				m.folderScroll = clampScroll(m.folderCursor, m.folderScroll, 10)
 				m.fileCursor = 0
@@ -190,7 +213,18 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "down", "j":
 		switch m.activePanel {
 		case panelFolders:
-			if m.folderCursor < len(m.folders)-1 {
+			if m.inParentView {
+				subs := m.subfolderNames(m.parentViewDir)
+				maxIdx := len(subs) // 0=~/, 1..len(subs)=subfolders
+				if m.folderCursor < maxIdx {
+					m.folderCursor++
+					m.folderScroll = clampScroll(m.folderCursor, m.folderScroll, 10)
+					m.fileCursor = 0
+					m.fileScroll = 0
+					m.loadFiles()
+					m.loadPreview()
+				}
+			} else if m.folderCursor < len(m.folders)-1 {
 				m.folderCursor++
 				m.folderScroll = clampScroll(m.folderCursor, m.folderScroll, 10)
 				m.fileCursor = 0
@@ -211,20 +245,77 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		switch m.activePanel {
 		case panelFolders:
-			folderName := m.currentFolderName()
-			if folderName != "" {
-				// Always navigate directly into the folder
-				newRoot := filepath.Join(m.snippetsDir, folderName)
+			if m.inParentView {
+				// In parent-view: Enter on ~/ does nothing (already showing its files)
+				// Enter on a subfolder: check if it itself has subfolders
+				if m.folderCursor == 0 {
+					// ~/ row — no-op, files already showing
+					break
+				}
+				subs := m.subfolderNames(m.parentViewDir)
+				idx := m.folderCursor - 1
+				if idx >= len(subs) {
+					break
+				}
+				subDir := filepath.Join(m.parentViewDir, subs[idx])
+				subSubs := m.subfolderNames(subDir)
+				if len(subSubs) > 0 {
+					// subfolder also has children — enter parent-view for it
+					m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
+					m.snippetsDir = m.parentViewDir
+					m.parentViewDir = subDir
+					m.folderCursor = 0
+					m.fileCursor = 0
+					m.loadFiles()
+					m.loadPreview()
+					m.statusMsg = "Inside: " + filepath.Base(subDir) + "  (← to go back)"
+					m.statusIsSuccess = true
+					return m, clearStatusAfter(4 * time.Second)
+				}
+				// plain subfolder — navigate into it directly (no subfolders)
 				m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
-				m.snippetsDir = newRoot
+				m.inParentView = false
+				m.parentViewDir = ""
+				m.snippetsDir = subDir
 				m.folderCursor = 0
 				m.fileCursor = 0
 				m.loadFolders()
 				m.loadFiles()
 				m.loadPreview()
-				m.statusMsg = "Navigated into: " + folderName + "  (← to go back)"
+				m.statusMsg = "Inside: " + filepath.Base(subDir) + "  (← to go back)"
 				m.statusIsSuccess = true
 				return m, clearStatusAfter(4 * time.Second)
+			} else {
+				folderName := m.currentFolderName()
+				if folderName != "" {
+					folderAbs := filepath.Join(m.snippetsDir, folderName)
+					subs := m.subfolderNames(folderAbs)
+					if len(subs) > 0 {
+						// folder has subfolders — enter parent-view mode
+						m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
+						m.snippetsDir = folderAbs
+						m.inParentView = true
+						m.parentViewDir = folderAbs
+						m.folderCursor = 0
+						m.fileCursor = 0
+						m.loadFiles()
+						m.loadPreview()
+						m.statusMsg = "Inside: " + folderName + "  (← to go back)"
+						m.statusIsSuccess = true
+						return m, clearStatusAfter(4 * time.Second)
+					}
+					// plain folder — navigate directly
+					m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
+					m.snippetsDir = folderAbs
+					m.folderCursor = 0
+					m.fileCursor = 0
+					m.loadFolders()
+					m.loadFiles()
+					m.loadPreview()
+					m.statusMsg = "Navigated into: " + folderName + "  (← to go back)"
+					m.statusIsSuccess = true
+					return m, clearStatusAfter(4 * time.Second)
+				}
 			}
 		case panelFiles:
 			if len(m.files) > 0 {
@@ -244,7 +335,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "N":
 		// create a new subfolder inside the currently selected folder
-		if m.activePanel == panelFolders && len(m.folders) > 0 {
+		if m.activePanel == panelFolders && !m.inParentView && len(m.folders) > 0 {
 			m.openModal(modalNewSubfolder)
 		}
 
@@ -326,8 +417,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "c":
 		switch m.activePanel {
 		case panelFiles:
-			if len(m.folders) > 0 {
-				destDir := filepath.Join(m.snippetsDir, m.currentFolderName())
+			destDir := m.currentFilesDir()
+			if destDir != "" {
 				m.modal = modalCopyFile
 				return m, doCopyFile(destDir)
 			}
@@ -384,7 +475,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "R":
-		if m.activePanel == panelFolders && len(m.folders) > 0 {
+		if m.activePanel == panelFolders && !m.inParentView && len(m.folders) > 0 {
 			m.modal = modalRenameFolder
 			m.modalInput.SetValue(m.currentFolderName())
 			m.modalInput.Focus()
@@ -392,7 +483,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "D":
-		if m.activePanel == panelFolders && len(m.folders) > 0 {
+		if m.activePanel == panelFolders && !m.inParentView && len(m.folders) > 0 {
 			m.modal = modalDeleteFolder
 		}
 
@@ -757,7 +848,8 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			parentFolder := m.currentFolderName()
-			dir := filepath.Join(m.snippetsDir, parentFolder, name)
+			parentDir := filepath.Join(m.snippetsDir, parentFolder)
+			dir := filepath.Join(parentDir, name)
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				m.modal = modalError
 				m.modalError = fmt.Sprintf("Could not create subfolder: %v", err)
@@ -918,12 +1010,13 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				if ext != "" {
 					filename = name + "." + ext
 				}
-				if len(m.folders) == 0 {
+				destDir := m.currentFilesDir()
+				if destDir == "" {
 					m.modal = modalError
 					m.modalError = "No folder selected. Create a folder first."
 					return m, nil
 				}
-				path := filepath.Join(m.snippetsDir, m.folders[m.folderCursor], filename)
+				path := filepath.Join(destDir, filename)
 				f, err := os.Create(path)
 				if err != nil {
 					m.modal = modalError

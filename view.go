@@ -126,7 +126,9 @@ func (m model) renderFoldersPanel(w, h int) string {
 
 	// ── Title ─────────────────────────────────────────────────────────
 	titleText := " Folders"
-	if len(m.folderDirStack) > 0 {
+	if m.inParentView {
+		titleText = " " + filepath.Base(m.parentViewDir) + " " + mutedStyle.Render("← back")
+	} else if len(m.folderDirStack) > 0 {
 		titleText = " Folders " + mutedStyle.Render("← back")
 	} else if m.snippetsDir != m.origSnippetsDir {
 		titleText = " Folders " + mutedStyle.Render("H:home")
@@ -141,48 +143,97 @@ func (m model) renderFoldersPanel(w, h int) string {
 	}
 	lines = append(lines, mutedStyle.Render(strings.Repeat("─", innerW-1)))
 
-	// ── Main folders list (virtual scroll, no scrollbar) ─────────────
-	displayFolders := m.filteredFolders()
-	scroll := clampScroll(m.folderCursor, m.folderScroll, mainListH)
-
-	if len(displayFolders) == 0 {
-		lines = append(lines, mutedStyle.Render("No folders yet"))
-		lines = append(lines, mutedStyle.Render("Press n to create"))
-	} else {
+	if m.inParentView {
+		// ── Parent-view list: ~/ row + subfolder rows ─────────────────
+		subs := m.subfolderNames(m.parentViewDir)
+		// total items = 1 (~/) + len(subs)
+		totalItems := 1 + len(subs)
+		scroll := clampScroll(m.folderCursor, m.folderScroll, mainListH)
 		for row := 0; row < mainListH; row++ {
 			idx := scroll + row
-			if idx >= len(displayFolders) {
+			if idx >= totalItems {
 				lines = append(lines, "")
 				continue
 			}
-			name := displayFolders[idx]
-			label := truncate(name, innerW-6)
-			isFav := m.isFavorite(name)
-			favMark := ""
-			if isFav {
-				favMark = " " + starIcon
-			}
-			subMark := ""
-			if m.hasSubfolders(name) {
-				subMark = mutedStyle.Render(" ›")
-			}
-			isSelected := !m.inFavSection && idx == m.folderCursor && !m.folderSearchActive ||
-				m.folderSearchActive && idx == m.folderCursor
 			var rowStr string
-			if isSelected {
-				rowStr = arrowStyle.Render("> ") +
-					lipgloss.NewStyle().Foreground(colorAccentBlue).Render(folderIcon) +
-					lipgloss.NewStyle().Foreground(colorAccentBlue).Render(label) +
-					subMark +
-					favMark
+			if idx == 0 {
+				// ~/ entry
+				if m.folderCursor == 0 {
+					rowStr = arrowStyle.Render("> ") +
+						lipgloss.NewStyle().Foreground(colorAccentBlue).Render("󰉋 ") +
+						lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render("~/")
+				} else {
+					rowStr = "   " + mutedStyle.Render("󰉋 ") +
+						mutedStyle.Render("~/")
+				}
 			} else {
-				rowStr = "   " +
-					mutedStyle.Render(folderIcon) +
-					lipgloss.NewStyle().Foreground(colorFg).Render(label) +
-					subMark +
-					favMark
+				// subfolder entry
+				subIdx := idx - 1
+				name := subs[subIdx]
+				label := truncate(name, innerW-6)
+				subAbs := filepath.Join(m.parentViewDir, name)
+				hasChildren := len(m.subfolderNames(subAbs)) > 0
+				subMark := ""
+				if hasChildren {
+					subMark = mutedStyle.Render(" ›")
+				}
+				if m.folderCursor == idx {
+					rowStr = arrowStyle.Render("> ") +
+						lipgloss.NewStyle().Foreground(colorAccentBlue).Render(folderIcon) +
+						lipgloss.NewStyle().Foreground(colorAccentBlue).Render(label) +
+						subMark
+				} else {
+					rowStr = "   " + mutedStyle.Render(folderIcon) +
+						lipgloss.NewStyle().Foreground(colorFg).Render(label) +
+						subMark
+				}
 			}
 			lines = append(lines, rowStr)
+		}
+	} else {
+		// ── Main folders list (virtual scroll, no scrollbar) ─────────────
+		displayFolders := m.filteredFolders()
+		scroll := clampScroll(m.folderCursor, m.folderScroll, mainListH)
+
+		if len(displayFolders) == 0 {
+			lines = append(lines, mutedStyle.Render("No folders yet"))
+			lines = append(lines, mutedStyle.Render("Press n to create"))
+		} else {
+			for row := 0; row < mainListH; row++ {
+				idx := scroll + row
+				if idx >= len(displayFolders) {
+					lines = append(lines, "")
+					continue
+				}
+				name := displayFolders[idx]
+				label := truncate(name, innerW-6)
+				isFav := m.isFavorite(name)
+				favMark := ""
+				if isFav {
+					favMark = " " + starIcon
+				}
+				subMark := ""
+				if m.hasSubfolders(name) {
+					subMark = mutedStyle.Render(" ›")
+				}
+				isSelected := !m.inFavSection && idx == m.folderCursor && !m.folderSearchActive ||
+					m.folderSearchActive && idx == m.folderCursor
+				var rowStr string
+				if isSelected {
+					rowStr = arrowStyle.Render("> ") +
+						lipgloss.NewStyle().Foreground(colorAccentBlue).Render(folderIcon) +
+						lipgloss.NewStyle().Foreground(colorAccentBlue).Render(label) +
+						subMark +
+						favMark
+				} else {
+					rowStr = "   " +
+						mutedStyle.Render(folderIcon) +
+						lipgloss.NewStyle().Foreground(colorFg).Render(label) +
+						subMark +
+						favMark
+				}
+				lines = append(lines, rowStr)
+			}
 		}
 	}
 
@@ -220,11 +271,26 @@ func (m model) renderFilesPanel(w, h int) string {
 	}
 	sb.WriteString(mutedStyle.Render(strings.Repeat("─", innerW)) + "\n")
 
-	// ── file list (filtered when searching) ──────────────────────────────────
+	// ── file list (filtered when searching) ──────────────────────────────────────
 	filtered := m.filteredFiles()
-	folderName := m.currentFolderName()
+	// Determine the display name for the folder context shown in file metadata
+	var folderName string
+	if m.inParentView {
+		if m.folderCursor == 0 {
+			folderName = "~/"
+		} else {
+			subs := m.subfolderNames(m.parentViewDir)
+			idx := m.folderCursor - 1
+			if idx < len(subs) {
+				folderName = subs[idx]
+			}
+		}
+	} else {
+		folderName = m.currentFolderName()
+	}
 
-	if len(m.folders) == 0 {
+	noFolders := !m.inParentView && len(m.folders) == 0
+	if noFolders {
 		sb.WriteString(mutedStyle.Render("Select a folder"))
 	} else if len(filtered) == 0 && m.searchActive {
 		sb.WriteString(mutedStyle.Render("No matches for: ") +

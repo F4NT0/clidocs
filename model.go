@@ -141,6 +141,10 @@ type model struct {
 	// folder panel dir-stack navigation (← goes back)
 	folderDirStack []string // previous snippetsDirs pushed when descending into subfolder
 
+	// parent-view mode: folder panel shows ~/ + subfolders of a parent folder
+	inParentView   bool   // true when showing the interior of a parent folder
+	parentViewDir  string // abs path of the parent folder currently expanded
+
 	// in-TUI directory browser (replaces PowerShell folder picker)
 	dirBrowser dirBrowser
 
@@ -318,11 +322,27 @@ func (m *model) loadFolders() {
 
 func (m *model) loadFiles() {
 	m.files = []fileEntry{}
-	folderName := m.currentFolderName()
-	if folderName == "" {
-		return
+	var dir string
+	if m.inParentView {
+		if m.folderCursor == 0 {
+			// ~/ selected: show direct files of the parent folder
+			dir = m.parentViewDir
+		} else {
+			// a subfolder row selected
+			subs := m.subfolderNames(m.parentViewDir)
+			idx := m.folderCursor - 1
+			if idx >= len(subs) {
+				return
+			}
+			dir = filepath.Join(m.parentViewDir, subs[idx])
+		}
+	} else {
+		folderName := m.currentFolderName()
+		if folderName == "" {
+			return
+		}
+		dir = filepath.Join(m.snippetsDir, folderName)
 	}
-	dir := filepath.Join(m.snippetsDir, folderName)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
@@ -342,6 +362,22 @@ func (m *model) loadFiles() {
 	}
 }
 
+// subfolderNames returns sorted subfolder names (non-hidden) inside dir.
+func (m model) subfolderNames(dir string) []string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var subs []string
+	for _, e := range entries {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			subs = append(subs, e.Name())
+		}
+	}
+	sort.Strings(subs)
+	return subs
+}
+
 // resolvedFile returns the currently selected file entry, respecting the
 // active search filter (fileCursor indexes into filteredFiles when search is on).
 func (m model) resolvedFile() (fileEntry, bool) {
@@ -354,6 +390,27 @@ func (m model) resolvedFile() (fileEntry, bool) {
 		idx = 0
 	}
 	return list[idx], true
+}
+
+// currentFilesDir returns the absolute directory whose files are shown in the
+// snippet panel. In inParentView mode the result depends on folderCursor.
+func (m model) currentFilesDir() string {
+	if m.inParentView {
+		if m.folderCursor == 0 {
+			return m.parentViewDir
+		}
+		subs := m.subfolderNames(m.parentViewDir)
+		idx := m.folderCursor - 1
+		if idx >= len(subs) {
+			return ""
+		}
+		return filepath.Join(m.parentViewDir, subs[idx])
+	}
+	folderName := m.currentFolderName()
+	if folderName == "" {
+		return ""
+	}
+	return filepath.Join(m.snippetsDir, folderName)
 }
 
 // isMarkdownFile returns true when the filename has a .md or .markdown extension.
@@ -369,15 +426,15 @@ func (m *model) loadPreview() {
 	m.previewIsImage = false
 	m.previewIsMarkdown = false
 	m.previewFilePath = ""
-	folderName := m.currentFolderName()
-	if folderName == "" {
+	dir := m.currentFilesDir()
+	if dir == "" {
 		return
 	}
 	f, ok := m.resolvedFile()
 	if !ok {
 		return
 	}
-	path := filepath.Join(m.snippetsDir, folderName, f.name)
+	path := filepath.Join(dir, f.name)
 	m.previewFilePath = path
 
 	if isImageFile(f.name) {
@@ -575,14 +632,15 @@ func (m model) currentFileName() string {
 }
 
 func (m model) currentFilePath() string {
-	if len(m.folders) == 0 {
-		return ""
-	}
 	f, ok := m.resolvedFile()
 	if !ok {
 		return ""
 	}
-	return filepath.Join(m.snippetsDir, m.folders[m.folderCursor], f.name)
+	dir := m.currentFilesDir()
+	if dir == "" {
+		return ""
+	}
+	return filepath.Join(dir, f.name)
 }
 
 // hasSubfolders returns true if the folder at relPath (relative to snippetsDir) contains subdirectories.
