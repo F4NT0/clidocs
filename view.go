@@ -193,19 +193,48 @@ func (m model) renderFoldersPanel(w, h int) string {
 	} else {
 		// ── Main folders list (virtual scroll, no scrollbar) ─────────────
 		displayFolders := m.filteredFolders()
+
+		// Build virtual list: when hasRootFiles insert ~/ at index 0
+		type virtualEntry struct {
+			isRoot bool
+			name   string
+		}
+		var virtualList []virtualEntry
+		if m.hasRootFiles && !m.folderSearchActive {
+			virtualList = append(virtualList, virtualEntry{isRoot: true})
+		}
+		for _, f := range displayFolders {
+			virtualList = append(virtualList, virtualEntry{name: f})
+		}
+
 		scroll := clampScroll(m.folderCursor, m.folderScroll, mainListH)
 
-		if len(displayFolders) == 0 {
+		if len(virtualList) == 0 {
 			lines = append(lines, mutedStyle.Render("No folders yet"))
 			lines = append(lines, mutedStyle.Render("Press n to create"))
 		} else {
 			for row := 0; row < mainListH; row++ {
 				idx := scroll + row
-				if idx >= len(displayFolders) {
+				if idx >= len(virtualList) {
 					lines = append(lines, "")
 					continue
 				}
-				name := displayFolders[idx]
+				entry := virtualList[idx]
+				isSelected := idx == m.folderCursor
+
+				var rowStr string
+				if entry.isRoot {
+					if isSelected {
+						rowStr = arrowStyle.Render("> ") +
+							lipgloss.NewStyle().Foreground(colorAccentBlue).Render("󰉋 ") +
+							lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render("~/")
+					} else {
+						rowStr = "   " + mutedStyle.Render("󰉋 ") + mutedStyle.Render("~/")
+					}
+					lines = append(lines, rowStr)
+					continue
+				}
+				name := entry.name
 				label := truncate(name, innerW-6)
 				isFav := m.isFavorite(name)
 				favMark := ""
@@ -216,9 +245,6 @@ func (m model) renderFoldersPanel(w, h int) string {
 				if m.hasSubfolders(name) {
 					subMark = mutedStyle.Render(" ›")
 				}
-				isSelected := !m.inFavSection && idx == m.folderCursor && !m.folderSearchActive ||
-					m.folderSearchActive && idx == m.folderCursor
-				var rowStr string
 				if isSelected {
 					rowStr = arrowStyle.Render("> ") +
 						lipgloss.NewStyle().Foreground(colorAccentBlue).Render(folderIcon) +
@@ -285,11 +311,13 @@ func (m model) renderFilesPanel(w, h int) string {
 				folderName = subs[idx]
 			}
 		}
+	} else if m.hasRootFiles && m.folderCursor == 0 {
+		folderName = "~/"
 	} else {
 		folderName = m.currentFolderName()
 	}
 
-	noFolders := !m.inParentView && len(m.folders) == 0
+	noFolders := !m.inParentView && !m.hasRootFiles && len(m.folders) == 0
 	if noFolders {
 		sb.WriteString(mutedStyle.Render("Select a folder"))
 	} else if len(filtered) == 0 && m.searchActive {

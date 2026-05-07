@@ -146,6 +146,8 @@ type model struct {
 	inParentView   bool   // true when showing the interior of a parent folder
 	parentViewDir  string // abs path of the parent folder currently expanded
 
+	hasRootFiles bool // true when snippetsDir itself contains direct (non-dir) files
+
 	// in-TUI directory browser (replaces PowerShell folder picker)
 	dirBrowser dirBrowser
 
@@ -298,8 +300,17 @@ func (m model) currentFolderInContext() string {
 		}
 		return ""
 	}
-	if m.folderCursor < len(m.folders) {
-		return m.folders[m.folderCursor]
+	// When hasRootFiles, cursor 0 is the ~/ root entry (not a folder name).
+	// Actual folder names start at cursor index 1.
+	idx := m.folderCursor
+	if m.hasRootFiles {
+		if idx == 0 {
+			return "" // ~/ root selected, no folder name
+		}
+		idx-- // shift to 0-based folders slice
+	}
+	if idx < len(m.folders) {
+		return m.folders[idx]
 	}
 	return ""
 }
@@ -307,17 +318,25 @@ func (m model) currentFolderInContext() string {
 func (m *model) loadFolders() {
 	entries, err := os.ReadDir(m.snippetsDir)
 	m.folders = []string{}
+	m.hasRootFiles = false
 	if err != nil {
 		return
 	}
 	for _, e := range entries {
 		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
 			m.folders = append(m.folders, e.Name())
+		} else if !e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			m.hasRootFiles = true
 		}
 	}
 	sort.Strings(m.folders)
-	if m.folderCursor >= len(m.folders) {
-		m.folderCursor = max(0, len(m.folders)-1)
+	// total virtual items = (1 if hasRootFiles) + len(folders)
+	totalItems := len(m.folders)
+	if m.hasRootFiles {
+		totalItems++
+	}
+	if m.folderCursor >= totalItems {
+		m.folderCursor = max(0, totalItems-1)
 	}
 }
 
@@ -337,7 +356,11 @@ func (m *model) loadFiles() {
 			}
 			dir = filepath.Join(m.parentViewDir, subs[idx])
 		}
+	} else if m.hasRootFiles && m.folderCursor == 0 {
+		// ~/ root entry selected: show files directly in snippetsDir
+		dir = m.snippetsDir
 	} else {
+		// normal folder selected — account for the ~/ offset when hasRootFiles
 		folderName := m.currentFolderName()
 		if folderName == "" {
 			return
@@ -406,6 +429,9 @@ func (m model) currentFilesDir() string {
 			return ""
 		}
 		return filepath.Join(m.parentViewDir, subs[idx])
+	}
+	if m.hasRootFiles && m.folderCursor == 0 {
+		return m.snippetsDir
 	}
 	folderName := m.currentFolderName()
 	if folderName == "" {
