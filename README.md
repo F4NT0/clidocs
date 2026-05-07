@@ -61,7 +61,7 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 
 - **Three-panel layout** — Folders / Snippets / Preview, fully keyboard-driven
 - **Splash screen** — ASCII art welcome screen when launching without a CLI argument; choose default dir or browse for another
-- **Subfolder navigation** — folders containing subfolders show a `›` indicator; press `Enter` to open a Browse modal; selecting a subfolder sets it as the new Folders panel root; press `←` to go back up
+- **Subfolder navigation** — folders with subfolders show a `›` indicator; press `Enter` to enter **parent-view mode** — the Folders panel shows `~/` (direct snippets of the parent) plus each subfolder; navigate with `↑↓` and press `Enter` on a subfolder to dive deeper; press `←` to go back
 - **Create subfolders** — press `N` in the Folders panel to create a subfolder inside the selected folder
 - **Folder search** — press `/` in the Folders panel to filter folders by name in real-time
 - **Rename folders** — press `R` in the Folders panel to rename any folder inline
@@ -87,8 +87,12 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 - **GitHub sync** — push your snippets to a remote repository with a single key press
 - **TUI Installer** — `clidocs-install.exe` adds `clidocs` to PATH automatically
 - **CLI directory argument** — run `clidocs`, `clidocs .`, or `clidocs <path>` to open any directory
-- **Console easter egg** — press `:` from any panel to open the `Cmdline` console with commands: `time`, `whoami`, `help`, `clear`
+- **Console easter egg** — press `:` from any panel to open the `Cmdline` console with commands: `time`, `whoami`, `nvim`, `help`, `clear`
 - **Work hours calculator** — `time` command computes coffee break, lunch, normal exit and max exit times
+- **Neovim quick reference** — `nvim` console command opens a two-column cheat-sheet with navigation, editing, save/quit, search, and multi-line comment/uncomment instructions
+- **Error modal word-wrap** — long error messages are automatically broken into multiple lines so they never overflow the terminal width
+- **Preview line truncation** — lines longer than the panel width are hard-truncated with ANSI-safe clipping, preventing long files from breaking the TUI layout
+- **Preview panel full-width** — markdown and code previews now use the full available panel width at any terminal size
 - **Dark theme** — unified `#0d1117` background, GitHub-inspired palette
 
 </details>
@@ -206,7 +210,7 @@ When you run `clidocs` **without any arguments**, an ASCII art welcome screen is
 |---|---|
 | `↑` / `k` | Previous folder |
 | `↓` / `j` | Next folder |
-| `Enter` | Open folder → Snippets panel (or subfolder navigator when folder has subfolders) |
+| `Enter` | Open folder → enters **parent-view** (shows `~/` + subfolders when folder has subfolders, otherwise navigates directly) |
 | `←` | **Go back** to parent directory (when inside a subfolder) |
 | `n` | Create new folder |
 | `N` | Create new **subfolder** inside the selected folder |
@@ -319,6 +323,7 @@ When you run `clidocs` **without any arguments**, an ASCII art welcome screen is
 |---|---|
 | `time` | Work hours calculator — enter start time, get exit times |
 | `whoami` | Show custom user info |
+| `nvim` | **Neovim Quick Reference** — two-column cheat-sheet with all basic commands |
 | `help` | Show all shortcuts and commands |
 | `clear` | Clear console output |
 | `exit` / `q` | Close console |
@@ -365,20 +370,23 @@ Folders that contain subfolders display a `›` indicator next to their name.
 
 ### Browsing subfolders
 
-1. Navigate to a folder with the `›` marker
-2. Press `Enter` — the **Browse Folder** modal opens
-3. Use `↑↓` to navigate entries — directories and files are listed together
-4. Press `Enter` on a **subdirectory** — it becomes the new **Folders panel root**; the panel now shows the contents of that subdirectory
-5. Press `Enter` on a **file** — it loads directly in the Preview panel
-6. Press `Backspace` to go up one level (or close the modal when at root)
-7. Press `Esc` to close at any time
+1. Navigate to a folder with the `›` marker in the Folders panel
+2. The Snippet panel already shows the **direct snippets** of that folder
+3. Press `Enter` — the app enters **parent-view mode**:
+   - The Folders panel title changes to the folder name + `← back`
+   - The first row is `~/` — selecting it shows the folder's own snippets
+   - Each subsequent row is a subfolder — selecting it shows its snippets
+4. Press `Enter` on a **subfolder row**:
+   - If it has no sub-subfolders → navigates directly into it
+   - If it also has children → enters parent-view recursively
+5. Press `←` to exit parent-view and return to the previous level
 
 <img src="images/subfolder-snippets.png" alt="Subfolder snippets" width="750">
 
 ### Going back up
 
-After descending into a subfolder, the Folders panel title shows **`← back`**.  
-Press `←` (left arrow) on the **Folders panel** to go back to the parent directory.
+When inside parent-view or a nested subfolder, the Folders panel title shows **`← back`**.  
+Press `←` (left arrow) on the **Folders panel** to go back to the previous level.
 
 ### Creating a subfolder
 
@@ -642,9 +650,24 @@ Press `:` from **any panel** to open the `Cmdline` console — a command-line in
 |---|---|
 | `time` | **Work hours calculator** — enter your start time (HH:MM) and get coffee break, lunch times, normal exit and maximum exit times |
 | `whoami` | Shows your custom user info (edit the `whoamiText` constant in `console.go`) |
+| `nvim` | Opens the **Neovim Quick Reference** modal — full two-column cheat-sheet for beginners |
 | `help` | Displays all keyboard shortcuts and console commands |
 | `clear` | Clears the console output area |
 | `exit` / `quit` | Closes the console |
+
+### Neovim Quick Reference (`nvim`)
+
+Type `nvim` in the console and press `Enter` to open a large reference modal covering:
+
+- **Navigation** — `hjkl`, `gg`/`G`, `Ctrl+d`/`u`, word and line jumps
+- **Editing** — insert modes (`i`, `a`, `o`), undo/redo, delete, yank, paste
+- **Save & Quit** — `:w`, `:q`, `:wq`, `:q!`
+- **Search** — `/word`, `n`/`N` to cycle matches
+- **Comment multiple lines** — `Ctrl+V` block select → `:` → `'<,'>s/^/#`
+- **Uncomment multiple lines** — `Ctrl+V` block select → `:` → `'<,'>s/^#//`
+- **Visual mode** — `v` (char), `V` (line), `Ctrl+V` (block)
+
+<img src="images/cmdline-nvim-guide.png" alt="Neovim Quick Reference" width="750">
 
 ### Work Hours Calculator (`time`)
 

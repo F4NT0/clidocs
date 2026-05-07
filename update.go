@@ -27,8 +27,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// ~35% of width for preview panel inner content, minimum 40
-		pw := (msg.Width * 35 / 100) - 4
+		// Match the actual previewW computed in renderMain: width - foldersW(22) - filesW(32) - 6 borders, minus 4 inner padding
+		pw := msg.Width - 22 - 32 - 6 - 4
 		if pw < 40 {
 			pw = 40
 		}
@@ -889,6 +889,8 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.modal = modalWhoami
 			case "help":
 				m.modal = modalHelpConsole
+			case "nvim":
+				m.modal = modalNvimGuide
 			case "clear":
 				m.consoleOutput = ""
 				m.modal = modalConsole
@@ -942,6 +944,13 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case modalHelpConsole:
+		switch msg.String() {
+		case "esc", "q", "enter":
+			m.modal = modalConsole
+		}
+		return m, nil
+
+	case modalNvimGuide:
 		switch msg.String() {
 		case "esc", "q", "enter":
 			m.modal = modalConsole
@@ -1142,13 +1151,17 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "enter":
 			newName := strings.TrimSpace(m.modalInput.Value())
 			oldName := m.currentFileName()
-			folderName := m.currentFolderName()
 			if newName == "" || newName == oldName {
 				m.modal = modalNone
 				return m, nil
 			}
-			oldPath := filepath.Join(m.snippetsDir, folderName, oldName)
-			newPath := filepath.Join(m.snippetsDir, folderName, newName)
+			fileDir := m.currentFilesDir()
+			if fileDir == "" {
+				m.modal = modalNone
+				return m, nil
+			}
+			oldPath := filepath.Join(fileDir, oldName)
+			newPath := filepath.Join(fileDir, newName)
 			if err := os.Rename(oldPath, newPath); err != nil {
 				m.modal = modalError
 				m.modalError = fmt.Sprintf("Could not rename file: %v", err)

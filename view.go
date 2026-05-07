@@ -472,11 +472,17 @@ func (m model) renderPreviewPanel(w, h int) string {
 			end = len(hLines)
 		}
 
+		// visible width budget for content inside the panel borders/padding
+		lineMaxW := w - 4
+		if lineMaxW < 10 {
+			lineMaxW = 10
+		}
+
 		if m.previewIsMarkdown {
 			// glamour output: render lines directly without gutter or hit markers
 			// (its ANSI sequences would be mangled by prefix injection)
 			for _, line := range hLines[start:end] {
-				contentLines = append(contentLines, line)
+				contentLines = append(contentLines, truncateAnsiLine(line, lineMaxW))
 			}
 		} else {
 			// line number gutter width
@@ -485,6 +491,7 @@ func (m model) renderPreviewPanel(w, h int) string {
 
 			for i, line := range hLines[start:end] {
 				absLine := start + i // 0-based line index
+				var rendered string
 				if m.previewLineNumbers {
 					lineNum := fmt.Sprintf("%*d", gnW, absLine+1)
 					var gnStyle lipgloss.Style
@@ -495,16 +502,19 @@ func (m model) renderPreviewPanel(w, h int) string {
 					} else {
 						gnStyle = mutedStyle
 					}
-					contentLines = append(contentLines, gnStyle.Render(lineNum)+mutedStyle.Render(" │ ")+line)
+					prefix := gnStyle.Render(lineNum) + mutedStyle.Render(" │ ")
+					prefixW := gnW + 3
+					rendered = prefix + truncateAnsiLine(line, lineMaxW-prefixW)
 				} else if absLine == currentHitLine {
-					contentLines = append(contentLines,
-						lipgloss.NewStyle().Foreground(colorOrange).Bold(true).Render("▶ ")+line)
+					prefix := lipgloss.NewStyle().Foreground(colorOrange).Bold(true).Render("▶ ")
+					rendered = prefix + truncateAnsiLine(line, lineMaxW-2)
 				} else if hitSet[absLine] {
-					contentLines = append(contentLines,
-						lipgloss.NewStyle().Foreground(colorGreen).Render("• ")+line)
+					prefix := lipgloss.NewStyle().Foreground(colorGreen).Render("• ")
+					rendered = prefix + truncateAnsiLine(line, lineMaxW-2)
 				} else {
-					contentLines = append(contentLines, line)
+					rendered = truncateAnsiLine(line, lineMaxW)
 				}
+				contentLines = append(contentLines, rendered)
 			}
 		}
 	}
@@ -826,6 +836,8 @@ func (m model) renderWithModal() string {
 		modal = m.renderWhoamiModal()
 	case modalHelpConsole:
 		modal = m.renderHelpConsoleModal()
+	case modalNvimGuide:
+		modal = m.renderNvimGuideModal()
 	}
 
 	return overlayModal(base, modal, m.width, m.height)
@@ -908,18 +920,29 @@ func (m model) renderNewFileModal() string {
 
 func (m model) renderErrorModal() string {
 	title := errorStyle.Render("  Error")
-	msg := lipgloss.NewStyle().Foreground(colorFg).Render(m.modalError)
 	help := helpStyle.Render("Enter / Esc: close")
 
-	return modalStyle.Render(
-		lipgloss.JoinVertical(lipgloss.Left,
-			title,
-			"",
-			msg,
-			"",
-			help,
-		),
-	)
+	// wrap long messages so they don't overflow the terminal width
+	maxW := m.width - 12
+	if maxW < 30 {
+		maxW = 30
+	}
+	var msgLines []string
+	for _, line := range strings.Split(m.modalError, "\n") {
+		for len(line) > maxW {
+			msgLines = append(msgLines, line[:maxW])
+			line = line[maxW:]
+		}
+		msgLines = append(msgLines, line)
+	}
+	var rows []string
+	rows = append(rows, title, "")
+	for _, l := range msgLines {
+		rows = append(rows, lipgloss.NewStyle().Foreground(colorFg).Render(l))
+	}
+	rows = append(rows, "", help)
+
+	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
 }
 
 func overlayModal(base, modal string, width, height int) string {
@@ -1119,7 +1142,7 @@ func (m model) renderConsoleModal() string {
 		}
 	}
 	rows = append(rows, "", sep,
-		mutedStyle.Render("time · whoami · help · clear · exit  |  Esc: close"))
+		mutedStyle.Render("time · whoami · nvim · help · clear · exit  |  Esc: close"))
 	style := lipgloss.NewStyle().
 		Background(colorBg).
 		Border(lipgloss.RoundedBorder()).
@@ -1198,6 +1221,88 @@ func (m model) renderHelpConsoleModal() string {
 	return outer.Render(lipgloss.JoinVertical(lipgloss.Left, title, "", columns, "", footer))
 }
 
+func (m model) renderNvimGuideModal() string {
+	green := lipgloss.Color("#57a143")
+	cyan := lipgloss.Color("#00e5ff")
+	orange := colorOrange
+	blue := colorAccentBlue
+
+	h := func(s string) string { return lipgloss.NewStyle().Foreground(green).Bold(true).Render(s) }
+	k := func(s string) string {
+		return lipgloss.NewStyle().Foreground(orange).Background(lipgloss.Color("#1e2a1e")).Padding(0, 1).Render(s)
+	}
+	dim := func(s string) string { return mutedStyle.Render(s) }
+
+	colW := 46
+
+	left := lipgloss.NewStyle().
+		Foreground(colorFg).Background(colorBg).
+		Border(lipgloss.NormalBorder()).BorderForeground(blue).
+		Padding(0, 1).Width(colW).Render(
+		h(" Navigation") + "\n" + dim(strings.Repeat("─", colW-2)) + "\n" +
+			k("h j k l") + dim("  ← ↓ ↑ →  (or arrow keys)") + "\n" +
+			k("gg") + dim("       go to top of file") + "\n" +
+			k("G") + dim("        go to bottom of file") + "\n" +
+			k("Ctrl+d") + dim("  scroll half page down") + "\n" +
+			k("Ctrl+u") + dim("  scroll half page up") + "\n" +
+			k("w") + dim(" / ") + k("b") + dim("    next / previous word") + "\n" +
+			k("0") + dim(" / ") + k("$") + dim("    start / end of line") + "\n" +
+			"\n" +
+			h(" Editing") + "\n" + dim(strings.Repeat("─", colW-2)) + "\n" +
+			k("i") + dim("        insert before cursor") + "\n" +
+			k("a") + dim("        insert after cursor") + "\n" +
+			k("o") + dim("        new line below, insert") + "\n" +
+			k("O") + dim("        new line above, insert") + "\n" +
+			k("Esc") + dim("      return to Normal mode") + "\n" +
+			k("u") + dim("        undo") + "\n" +
+			k("Ctrl+r") + dim("  redo") + "\n" +
+			k("dd") + dim("       delete (cut) line") + "\n" +
+			k("yy") + dim("       yank (copy) line") + "\n" +
+			k("p") + dim("        paste after cursor") + "\n" +
+			k("x") + dim("        delete character"),
+	)
+
+	right := lipgloss.NewStyle().
+		Foreground(colorFg).Background(colorBg).
+		Border(lipgloss.NormalBorder()).BorderForeground(blue).
+		Padding(0, 1).Width(colW).Render(
+		h(" Save & Quit") + "\n" + dim(strings.Repeat("─", colW-2)) + "\n" +
+			k(":w") + dim("       save file") + "\n" +
+			k(":q") + dim("       quit (no unsaved changes)") + "\n" +
+			k(":wq") + dim("  / ") + k(":x") + dim("  save and quit") + "\n" +
+			k(":q!") + dim("      quit without saving") + "\n" +
+			"\n" +
+			h(" Search") + "\n" + dim(strings.Repeat("─", colW-2)) + "\n" +
+			k("/word") + dim("    search forward") + "\n" +
+			k("n") + dim(" / ") + k("N") + dim("     next / previous match") + "\n" +
+			"\n" +
+			h(" Comment multiple lines") + "\n" + dim(strings.Repeat("─", colW-2)) + "\n" +
+			dim("1. ") + k("Ctrl+V") + dim(" → select lines (block mode)") + "\n" +
+			dim("2. ") + k(":") + dim(" → opens command line") + "\n" +
+			dim("3. type ") + k("'<,'>s/^/#") + dim("  → adds # at line start") + "\n" +
+			"\n" +
+			h(" Uncomment multiple lines") + "\n" + dim(strings.Repeat("─", colW-2)) + "\n" +
+			dim("1. ") + k("Ctrl+V") + dim(" → select lines (block mode)") + "\n" +
+			dim("2. ") + k(":") + dim(" → opens command line") + "\n" +
+			dim("3. type ") + k(`'<,'>s/^#//`) + dim("  → removes # from start") + "\n" +
+			"\n" +
+			h(" Visual mode") + "\n" + dim(strings.Repeat("─", colW-2)) + "\n" +
+			k("v") + dim("  char select  ") + k("V") + dim("  line select") + "\n" +
+			k("Ctrl+V") + dim("  block select"),
+	)
+
+	columns := lipgloss.JoinHorizontal(lipgloss.Top, left, "  ", right)
+	title := lipgloss.NewStyle().Foreground(cyan).Bold(true).Render(" Neovim Quick Reference")
+	footer := mutedStyle.Render("Enter / Esc: back to console")
+
+	outer := lipgloss.NewStyle().
+		Background(colorBg).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(cyan).
+		Padding(1, 2)
+	return outer.Render(lipgloss.JoinVertical(lipgloss.Left, title, "", columns, "", footer))
+}
+
 func stripAnsi(s string) string {
 	var result strings.Builder
 	inEsc := false
@@ -1215,4 +1320,41 @@ func stripAnsi(s string) string {
 		result.WriteRune(r)
 	}
 	return result.String()
+}
+
+// truncateAnsiLine truncates a line that may contain ANSI escape codes so that
+// its *visible* character count does not exceed maxVisible. The ANSI reset
+// sequence is appended when truncation was needed, so colours do not bleed
+// into the next line.
+func truncateAnsiLine(s string, maxVisible int) string {
+	if maxVisible <= 0 {
+		return ""
+	}
+	visible := 0
+	inEsc := false
+	var out strings.Builder
+	runes := []rune(s)
+	for i := 0; i < len(runes); i++ {
+		r := runes[i]
+		if r == '\x1b' {
+			inEsc = true
+			out.WriteRune(r)
+			continue
+		}
+		if inEsc {
+			out.WriteRune(r)
+			if r == 'm' {
+				inEsc = false
+			}
+			continue
+		}
+		if visible >= maxVisible {
+			// truncated — close any open colour sequence
+			out.WriteString("\x1b[0m")
+			return out.String()
+		}
+		out.WriteRune(r)
+		visible++
+	}
+	return out.String()
 }

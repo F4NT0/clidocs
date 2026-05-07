@@ -51,6 +51,7 @@ const (
 	modalNewSubfolder
 	modalDirBrowser
 	modalMoveFileBrowse
+	modalNvimGuide
 )
 
 type fileEntry struct {
