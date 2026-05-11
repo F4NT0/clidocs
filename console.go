@@ -3,17 +3,17 @@ package main
 // whoamiText is the text shown when the user types "whoami" in the console.
 // Edit the lines below to customize your personal info.
 const whoamiText = `
-  ┌─────────────────────────────────────────┐
-  │  Gabriel Stundner                       │
-  │  Software Developer                     │
-  │                                         │
-  │  GitHub  : github.com/F4NT0             │
-  │  Editor  : Neovim + VS Code             │
-  │  Shell   : PowerShell / pwsh            │
-  │  OS      : Windows 11                   │
-  │                                         │
-  │  "Code is poetry written for machines"  │
-  └─────────────────────────────────────────┘
+  ┌────────────────────────────────────────────────────┐
+  │  Gabriel Stundner                                  │
+  │  Software Developer                                │
+  │                                                    │
+  │  GitHub  : github.com/F4NT0                        │
+  │  Editor  : Neovim                                  │
+  │  Shell   : PowerShell / pwsh                       │
+  │  OS      : Windows 11                              │
+  │                                                    │
+  │  "Rise and Rise again, until lambs become lions!"  │
+  └────────────────────────────────────────────────────┘
 `
 
 // helpLeft and helpRight are the two columns rendered side-by-side in renderHelpConsoleModal.

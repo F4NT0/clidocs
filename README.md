@@ -1,16 +1,13 @@
 <table align="center"><tr><td align="center" width="9999">
 
-<img src="images/screenshot-main.png" alt="clidocs main interface" width="900">
+<img src="images/new-images/cover.png" alt="clidocs main interface" width="900">
 
 **A terminal-native snippet manager built with Go**
 
 [![Go Version](https://img.shields.io/badge/Go-1.24%2B-00add8?style=flat-square&logo=go)](https://go.dev)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078d4?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
 [![Shell](https://img.shields.io/badge/Shell-PowerShell-5391fe?style=flat-square&logo=powershell)](https://learn.microsoft.com/powershell)
-[![Editor](https://img.shields.io/badge/Editor-Neovim%20%7C%20VS%20Code-57a143?style=flat-square&logo=neovim)](https://neovim.io)
-[![License](https://img.shields.io/badge/License-MIT-e6edf3?style=flat-square)](LICENSE)
-
-Organize, preview, and edit code snippets in a three-panel TUI — with syntax highlighting, subfolder navigation, GitHub sync, and Windows-native file import.
+[![Editor](https://img.shields.io/badge/Editor-Neovim-57a143?style=flat-square&logo=neovim)](https://neovim.io)
 
 </td></tr></table>
 
@@ -187,11 +184,9 @@ When you run `clidocs` **without any arguments**, an ASCII art welcome screen is
 
 ## Interface
 
-<div align="center">
-
-<img src="images/visualization.png" alt="clidocs interface" width="900">
-
-</div>
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/visualization.png" alt="clidocs interface" width="900">
+</td></tr></table>
 
 ### Panel descriptions
 
@@ -343,7 +338,9 @@ When you run `clidocs` **without any arguments**, an ASCII art welcome screen is
 1. Focus the **Folders** panel
 2. Press `n` → type the folder name → `Enter` to confirm, `Esc` to cancel
 
-<img src="images/create-new-folder.png" alt="Create folder" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/create-new-folder.png" alt="Create folder" width="750">
+</td></tr></table>
 
 ### Rename a folder
 
@@ -352,7 +349,9 @@ When you run `clidocs` **without any arguments**, an ASCII art welcome screen is
 3. Edit the name → `Enter` to confirm, `Esc` to cancel
 4. Favorites referencing the folder are updated automatically
 
-<img src="images/rename-folder.png" alt="Rename folder" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/rename-folder.png" alt="Rename folder" width="750">
+</td></tr></table>
 
 ### Delete a folder
 
@@ -362,7 +361,9 @@ When you run `clidocs` **without any arguments**, an ASCII art welcome screen is
 
 > **Warning:** Deletion is permanent and recursive — all files and subfolders inside are removed from disk.
 
-<img src="images/delete-folder.png" alt="Delete folder" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/delete-folder.png" alt="Delete folder" width="750">
+</td></tr></table>
 
 ---
 
@@ -370,7 +371,9 @@ When you run `clidocs` **without any arguments**, an ASCII art welcome screen is
 
 Folders that contain subfolders display a `›` indicator next to their name.
 
-<img src="images/subfolder-navigation.png" alt="Subfolder indicator" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/subfolder-navigation.png" alt="Subfolder indicator" width="750">
+</td></tr></table>
 
 ### Browsing subfolders
 
@@ -385,7 +388,9 @@ Folders that contain subfolders display a `›` indicator next to their name.
    - If it also has children → enters parent-view recursively
 5. Press `←` to exit parent-view and return to the previous level
 
-<img src="images/subfolder-snippets.png" alt="Subfolder snippets" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/subfolder-snippets.png" alt="Subfolder snippets" width="750">
+</td></tr></table>
 
 ### Going back up
 
@@ -398,7 +403,9 @@ Press `←` (left arrow) on the **Folders panel** to go back to the previous lev
 2. Press `N` — a modal asks for the new subfolder name
 3. Press `Enter` to create, `Esc` to cancel
 
-<img src="images/subfolder-creation.png" alt="Subfolder creation" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/subfolder-creation.png" alt="Subfolder creation" width="750">
+</td></tr></table>
 
 ---
 
@@ -411,7 +418,9 @@ Press `←` (left arrow) on the **Folders panel** to go back to the previous lev
 5. Press `Enter` to confirm selection and switch to that folder's snippets
 6. Press `Esc` to cancel and restore the full list
 
-<img src="images/search-folders.png" alt="Folder search" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/search-folders.png" alt="Folder search" width="750">
+</td></tr></table>
 
 ---
 
@@ -424,7 +433,9 @@ Press `←` (left arrow) on the **Folders panel** to go back to the previous lev
 3. **Step 1** — Enter the file name (without extension) → `Enter` or `Tab`
 4. **Step 2** — Enter the extension (e.g. `go`, `py`, `md`) → `Enter` to create and open
 
-<img src="images/create-new-file.png" alt="Create file" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/create-new-file.png" alt="Create file" width="750">
+</td></tr></table>
 
 
 ### Rename a snippet
@@ -433,7 +444,9 @@ Press `←` (left arrow) on the **Folders panel** to go back to the previous lev
 2. Press `r` — a modal appears with the current filename pre-filled
 3. Edit the name → `Enter` to confirm, `Esc` to cancel
 
-<img src="images/rename-file.png" alt="Rename file" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/rename-file.png" alt="Rename file" width="750">
+</td></tr></table>
 
 ### Delete a file
 
@@ -443,7 +456,9 @@ Press `←` (left arrow) on the **Folders panel** to go back to the previous lev
 
 > **Warning:** Deletion is permanent.
 
-<img src="images/delete-file.png" alt="Delete file" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/delete-file.png" alt="Delete file" width="750">
+</td></tr></table>
 
 ### Move a file to another folder
 
@@ -452,7 +467,9 @@ Press `←` (left arrow) on the **Folders panel** to go back to the previous lev
 3. A modal lists all other folders — navigate with `↑↓`
 4. Press `Enter` to move the file
 
-<img src="images/move-file.png" alt="Move file" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/move-file.png" alt="Move file" width="750">
+</td></tr></table>
 
 ### Inline File Search
 
@@ -462,7 +479,9 @@ Press `←` (left arrow) on the **Folders panel** to go back to the previous lev
 4. Use `↑`/`↓` to navigate filtered results — **preview updates live**
 5. Press `Enter` to confirm selection, `Esc` to cancel
 
-<img src="images/search-filter-snippets.png" alt="Inline file search" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/search-filter-snippets.png" alt="Inline file search" width="750">
+</td></tr></table>
 
 ---
 
@@ -474,7 +493,9 @@ The Preview panel shows the syntax-highlighted content of the selected file with
 
 When a file is loaded — either from the Snippets panel or via the Subfolder Navigator — the **full absolute path** is displayed in orange below the file title:
 
-<img src="images/file-path-indicator.png" alt="File path indicator" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/file-path-indicator.png" alt="File path indicator" width="750">
+</td></tr></table>
 
 ### Open actions
 
@@ -494,13 +515,17 @@ When a file is loaded — either from the Snippets panel or via the Subfolder Na
 4. Press `n` / `N` to cycle through hits
 5. Press `Esc` to close
 
-<img src="images/search-word-visualization.png" alt="Preview word search" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/search-word-visualization.png" alt="Preview word search" width="750">
+</td></tr></table>
 
 ### Line Numbers
 
 Press `L` to toggle line numbers. When active, matched search lines show their number in orange (current) or green (other hits).
 
-<img src="images/Show_Line_Numbers.png" alt="Line numbers" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/Show_Line_Numbers.png" alt="Line numbers" width="750">
+</td></tr></table>
 
 ### Markdown Preview
 
@@ -522,13 +547,17 @@ A **`[MD]`** badge appears in the preview panel title when a markdown file is ac
 
 > **Note:** LaTeX math formulas (`$x^2$`, `$$\int$$`) are not rendered — the terminal has no math engine. Write formulas as ASCII (`x²`) or use fenced code blocks (` ```math `).
 
-<img src="images/markdown-preview.png" alt="Markdown preview" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/markdown-preview.png" alt="Markdown preview" width="750">
+</td></tr></table>
 
 ### Copy to clipboard
 
 Press `c` in the Preview panel to copy the entire file content to the system clipboard. A green status message confirms the action.
 
-<img src="images/copy-to-clipboard.png" alt="Copy to clipboard" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/copy-to-clipboard.png" alt="Copy to clipboard" width="750">
+</td></tr></table>
 
 ---
 
@@ -544,7 +573,9 @@ Favorites let you bookmark frequently-used folders and jump to them instantly.
 
 > Favorites are saved to `.clidocs_favorites.json` inside the snippets directory and persist across sessions.
 
-<img src="images/folder-favorites.png" alt="Folder favorites" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/folder-favorites.png" alt="Folder favorites" width="750">
+</td></tr></table>
 
 ### Navigating favorites
 
@@ -553,7 +584,9 @@ Favorites let you bookmark frequently-used folders and jump to them instantly.
 3. Press `f` inside the modal to unfavorite the selected entry
 4. Press `Esc` or `F` to close
 
-<img src="images/favorites-modal.png" alt="Favorites modal" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/favorites-modal.png" alt="Favorites modal" width="750">
+</td></tr></table>
 
 ### Returning to the home directory
 
@@ -574,7 +607,9 @@ Press `o` (on Folders or Snippets panel) to open the directory info modal.
 
 > Changing the directory takes effect immediately. The original default directory (`%USERPROFILE%\clidocs_snippets`) is never deleted.
 
-<img src="images/snippet-directory.png" alt="Snippets directory" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/snippet-directory.png" alt="Snippets directory" width="750">
+</td></tr></table>
 
 ---
 
@@ -582,7 +617,9 @@ Press `o` (on Folders or Snippets panel) to open the directory info modal.
 
 When you press `Enter` on a file in the Snippets panel (or `e` in the Preview panel), clidocs opens **Neovim in a new Windows Terminal window**:
 
-<img src="images/open-in-neovim.png" alt="Open in Neovim" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/open-in-neovim.png" alt="Open in Neovim" width="750">
+</td></tr></table>
 
 > **Fallback:** If Windows Terminal (`wt`) is not available, Neovim takes over the current terminal.
 
@@ -599,7 +636,9 @@ Copy any file from your computer into the currently selected folder:
 
 > Supports **multi-selection** — hold `Ctrl` or `Shift` in the dialog.
 
-<img src="images/import-file.png" alt="Import file" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/import-file.png" alt="Import file" width="750">
+</td></tr></table>
 
 ---
 
@@ -607,7 +646,9 @@ Copy any file from your computer into the currently selected folder:
 
 Back up and share your snippets by syncing to a GitHub repository.
 
-<img src="images/sync-git.png" alt="GitHub sync" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/sync-git.png" alt="GitHub sync" width="750">
+</td></tr></table>
 
 ### First use
 
@@ -621,7 +662,9 @@ Press `g` — a setup modal appears:
 
 Navigate fields with `Enter` or `Tab` / `Shift+Tab`. Config is saved to `.clidocs_git.json`.
 
-<img src="images/sync-config.png" alt="Sync configuration" width="750">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/sync-config.png" alt="Sync configuration" width="750">
+</td></tr></table>
 
 ### How sync works
 
@@ -634,11 +677,15 @@ Navigate fields with `Enter` or `Tab` / `Shift+Tab`. Config is saved to `.clidoc
 
 Press `G` at any time to update the repo URL, username, or email.
 
-<img src="images/sync-config.png" alt="Git configuration" width="750">
+<table align="center"><tr><td align="center" width="9999">
+  <img src="images/sync-config.png" alt="Git configuration" width="750">
+</td></tr></table>
 
 > **Note:** The repository must exist on GitHub before syncing. For private repos, ensure credentials are cached via [Git Credential Manager](https://github.com/git-ecosystem/git-credential-manager) or SSH.
 
-<img src="images/sync-complete.png" alt="GitHub sync" width="750">
+<table align="center"><tr><td align="center" width="9999">
+  <img src="images/sync-complete.png" alt="GitHub sync" width="750">
+</td></tr></table>
 
 ---
 
@@ -646,7 +693,9 @@ Press `G` at any time to update the repo URL, username, or email.
 
 Press `:` from **any panel** to open the `Cmdline` console — a command-line interface inside clidocs.
 
-<img src="images/cmdline-screen.png" alt="Console easter egg" width="750">
+<table align="center"><tr><td align="center" width="9999">
+  <img src="images/cmdline-screen.png" alt="Console easter egg" width="750">
+</td></tr></table>
 
 ### Available commands
 
@@ -671,7 +720,9 @@ Type `nvim` in the console and press `Enter` to open a large reference modal cov
 - **Uncomment multiple lines** — `Ctrl+V` block select → `:` → `'<,'>s/^#//`
 - **Visual mode** — `v` (char), `V` (line), `Ctrl+V` (block)
 
-<img src="images/cmdline-nvim-guide.png" alt="Neovim Quick Reference" width="750">
+<table align="center"><tr><td align="center" width="9999">
+  <img src="images/cmdline-nvim-guide.png" alt="Neovim Quick Reference" width="750">
+</td></tr></table>
 
 ### Work Hours Calculator (`time`)
 
@@ -685,7 +736,9 @@ Based on a standard workday of **8h48** (with 1h lunch), given your entry time:
 | **Normal exit** | Entry + 8h48 work + 1h lunch |
 | **Maximum exit** | Entry + 10h work + 1h lunch |
 
-<img src="images/cmdline-work-hours.png" alt="Time calculator" width="750">
+<table align="center"><tr><td align="center" width="9999">
+  <img src="images/cmdline-work-hours.png" alt="Time calculator" width="750">
+</td></tr></table>
 
 ### Customizing `whoami`
 
@@ -700,7 +753,9 @@ const whoamiText = `
 `
 ```
 
-<img src="images/cmdline-whoami.png" alt="Whoami command" width="750">
+<table align="center"><tr><td align="center" width="9999">
+  <img src="images/cmdline-whoami.png" alt="Whoami command" width="750">
+</td></tr></table>
 
 ---
 
