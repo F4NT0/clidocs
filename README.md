@@ -423,7 +423,7 @@ Press `←` (left arrow) on the **Folders panel** to go back to the previous lev
 6. Press `Esc` to cancel and restore the full list
 
 <table align="center"><tr><td align="center" width="9999">
-   <img src="images/search-folders.png" alt="Folder search" width="750">
+   <img src="images/search-folders.png" alt="Folder search" width="200">
 </td></tr></table>
 
 ---
@@ -704,7 +704,7 @@ Press `g` — a setup modal appears:
 Navigate fields with `Enter` or `Tab` / `Shift+Tab`. Config is saved to `.clidocs_git.json`.
 
 <table align="center"><tr><td align="center" width="9999">
-   <img src="images/sync-config.png" alt="Sync configuration" width="750">
+   <img src="images/sync-config.png" alt="Sync configuration" width="400">
 </td></tr></table>
 
 ### How sync works
@@ -719,13 +719,13 @@ Navigate fields with `Enter` or `Tab` / `Shift+Tab`. Config is saved to `.clidoc
 Press `G` at any time to update the repo URL, username, or email.
 
 <table align="center"><tr><td align="center" width="9999">
-  <img src="images/sync-config.png" alt="Git configuration" width="750">
+  <img src="images/sync-config.png" alt="Git configuration" width="400">
 </td></tr></table>
 
 > **Note:** The repository must exist on GitHub before syncing. For private repos, ensure credentials are cached via [Git Credential Manager](https://github.com/git-ecosystem/git-credential-manager) or SSH.
 
 <table align="center"><tr><td align="center" width="9999">
-  <img src="images/sync-complete.png" alt="GitHub sync" width="750">
+  <img src="images/sync-complete.png" alt="GitHub sync" width="400">
 </td></tr></table>
 
 ---
@@ -735,7 +735,7 @@ Press `G` at any time to update the repo URL, username, or email.
 Press `:` from **any panel** to open the `Cmdline` console — a command-line interface inside clidocs.
 
 <table align="center"><tr><td align="center" width="9999">
-  <img src="images/cmdline-screen.png" alt="Console easter egg" width="750">
+  <img src="images/cmdline-screen.png" alt="Console easter egg" width="600">
 </td></tr></table>
 
 ### Available commands
@@ -762,7 +762,7 @@ Type `nvim` in the console and press `Enter` to open a large reference modal cov
 - **Visual mode** — `v` (char), `V` (line), `Ctrl+V` (block)
 
 <table align="center"><tr><td align="center" width="9999">
-  <img src="images/cmdline-nvim-guide.png" alt="Neovim Quick Reference" width="750">
+  <img src="images/cmdline-nvim-guide.png" alt="Neovim Quick Reference" width="600">
 </td></tr></table>
 
 ### Work Hours Calculator (`time`)
@@ -795,7 +795,7 @@ const whoamiText = `
 ```
 
 <table align="center"><tr><td align="center" width="9999">
-  <img src="images/cmdline-whoami.png" alt="Whoami command" width="750">
+  <img src="images/cmdline-whoami.png" alt="Whoami command" width="400">
 </td></tr></table>
 
 ---
@@ -803,6 +803,9 @@ const whoamiText = `
 ## Supported Languages
 
 Syntax highlighting uses **Chroma** with the **GitHub Dark** theme. Each file shows a colored extension badge.
+
+<details>
+<summary><strong>Click to expand the supported languages</strong></summary>
 
 | Extension | Language | Badge color |
 |---|---|---|
@@ -841,6 +844,8 @@ Syntax highlighting uses **Chroma** with the **GitHub Dark** theme. Each file sh
 | `.vim` | Vim Script | ![#199f4b](https://img.shields.io/badge/-vim-199f4b?style=flat-square) |
 | `.env` | Dotenv | ![#ecd53f](https://img.shields.io/badge/-env-ecd53f?style=flat-square) |
 | `.txt` / `.conf` | Plain text | ![#6e7681](https://img.shields.io/badge/-txt-6e7681?style=flat-square) |
+
+</details>
 
 ---
 
