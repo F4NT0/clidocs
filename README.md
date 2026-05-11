@@ -1,6 +1,6 @@
-<div align="center">
+<table align="center"><tr><td align="center" width="9999">
 
-<img src="images/banner.png" alt="clidocs" width="480">
+<img src="images/screenshot-main.png" alt="clidocs main interface" width="900">
 
 **A terminal-native snippet manager built with Go**
 
@@ -12,13 +12,7 @@
 
 Organize, preview, and edit code snippets in a three-panel TUI — with syntax highlighting, subfolder navigation, GitHub sync, and Windows-native file import.
 
-</div>
-
-<div align="center">
-
-<img src="images/screenshot-main.png" alt="clidocs main interface" width="900">
-
-</div>
+</td></tr></table>
 
 ---
 
@@ -135,19 +129,27 @@ go build -o clidocs.exe .
 
 > Run `.\clidocs-install.exe` as administrator
 
-<img src="images/instalador-pagina-inicial.png" alt="clidocs installer" width="400">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/instalador-pagina-inicial.png" alt="clidocs installer" width="600">
+</td></tr></table>
 
 > Select the installation path and click "Next"
 
-<img src="images/instalador-local-salvar.png" alt="clidocs installer" width="400">
+<table align="center"><tr><td align="center" width="9999">
+    <img src="images/instalador-local-salvar.png" alt="clidocs installer" width="600">
+</td></tr></table>
 
 > If there's already an .exe in the location (to update), it will ask if you want to replace it.
 
-<img src="images/instalador-update-exe.png" alt="clidocs installer" width="400">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/instalador-update-exe.png" alt="clidocs installer" width="600">
+</td></tr></table>
 
 > After change there's a success
 
-<img src="images/instalador-sucesso.png" alt="clidocs installer" width="400">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/instalador-sucesso.png" alt="clidocs installer" width="600">
+</td></tr></table>
 
 After that, open any PowerShell window and type `clidocs`.
 
@@ -176,7 +178,9 @@ clidocs .\docs\snippets
 
 When you run `clidocs` **without any arguments**, an ASCII art welcome screen is shown:
 
-<img src="images/screenshot-main.png" alt="main screen" width="400">
+<table align="center"><tr><td align="center" width="9999">
+   <img src="images/screenshot-main.png" alt="main screen" width="600">
+</td></tr></table>
 
 > The splash screen is **skipped** when you pass a path argument: `clidocs .` or `clidocs <path>`.
 ---
