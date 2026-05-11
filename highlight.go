@@ -213,7 +213,8 @@ func preprocessMath(content string) string {
 	return content
 }
 
-func strPtr(s string) *string { return &s }
+func strPtr(s string) *string  { return &s }
+func boolPtr(b bool) *bool    { return &b }
 
 // renderMarkdown renders Markdown using glamour with a patched dark style:
 //   - fixes red squares on JSON code blocks (Error/Punctuation tokens → neutral)
@@ -228,12 +229,52 @@ func renderMarkdown(content string, width int) string {
 	// Start from the built-in dark config and patch only what we need.
 	cfg := glamourStyles.DarkStyleConfig
 
-	// Fix 1: JSON red squares — Error and Punctuation chroma tokens inherit
-	// a red colour in the dark theme. Override them to plain foreground.
-	if cfg.CodeBlock.Chroma != nil {
-		neutral := strPtr("#e6edf3")
-		cfg.CodeBlock.Chroma.Error = ansi.StylePrimitive{Color: neutral, BackgroundColor: strPtr("")}
-		cfg.CodeBlock.Chroma.Punctuation = ansi.StylePrimitive{Color: neutral}
+	// Code block — dark panel background, vivid Chroma colors.
+	codeMargin := uint(1)
+	codeIndent := uint(1)
+	cfg.CodeBlock = ansi.StyleCodeBlock{
+		StyleBlock: ansi.StyleBlock{
+			StylePrimitive: ansi.StylePrimitive{
+				BackgroundColor: strPtr("#1e1e1e"),
+				Color:           strPtr("#d4d4d4"),
+			},
+			Margin: &codeMargin,
+			Indent: &codeIndent,
+		},
+		Theme: "github-dark",
+		Chroma: &ansi.Chroma{
+			Text:                ansi.StylePrimitive{Color: strPtr("#d4d4d4")},
+			Error:               ansi.StylePrimitive{Color: strPtr("#d4d4d4"), BackgroundColor: strPtr("")},
+			Comment:             ansi.StylePrimitive{Color: strPtr("#6a9955"), Italic: boolPtr(true)},
+			CommentPreproc:      ansi.StylePrimitive{Color: strPtr("#c586c0")},
+			Keyword:             ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			KeywordReserved:     ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			KeywordNamespace:    ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			KeywordType:         ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			Operator:            ansi.StylePrimitive{Color: strPtr("#d4d4d4")},
+			Punctuation:         ansi.StylePrimitive{Color: strPtr("#d4d4d4")},
+			Name:                ansi.StylePrimitive{Color: strPtr("#9cdcfe")},
+			NameBuiltin:         ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			NameTag:             ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			NameAttribute:       ansi.StylePrimitive{Color: strPtr("#9cdcfe")},
+			NameClass:           ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			NameConstant:        ansi.StylePrimitive{Color: strPtr("#9cdcfe")},
+			NameDecorator:       ansi.StylePrimitive{Color: strPtr("#dcdcaa")},
+			NameException:       ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			NameFunction:        ansi.StylePrimitive{Color: strPtr("#dcdcaa")},
+			NameOther:           ansi.StylePrimitive{Color: strPtr("#9cdcfe")},
+			Literal:             ansi.StylePrimitive{Color: strPtr("#ce9178")},
+			LiteralNumber:       ansi.StylePrimitive{Color: strPtr("#b5cea8")},
+			LiteralDate:         ansi.StylePrimitive{Color: strPtr("#ce9178")},
+			LiteralString:       ansi.StylePrimitive{Color: strPtr("#ce9178")},
+			LiteralStringEscape: ansi.StylePrimitive{Color: strPtr("#d7ba7d")},
+			GenericDeleted:      ansi.StylePrimitive{Color: strPtr("#f44747")},
+			GenericEmph:         ansi.StylePrimitive{Color: strPtr("#d4d4d4"), Italic: boolPtr(true)},
+			GenericInserted:     ansi.StylePrimitive{Color: strPtr("#b5cea8")},
+			GenericStrong:       ansi.StylePrimitive{Color: strPtr("#d4d4d4"), Bold: boolPtr(true)},
+			GenericSubheading:   ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			Background:          ansi.StylePrimitive{BackgroundColor: strPtr("#1e1e1e")},
+		},
 	}
 
 	// Bold — orange.
