@@ -197,6 +197,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.fileScroll = 0
 				m.loadFiles()
 				m.loadPreview()
+			} else if m.hasRootFiles && m.folderCursor == 0 {
+				// already at ~/ root — nothing to do
 			}
 		case panelFiles:
 			if m.fileCursor > 0 {
@@ -224,13 +226,19 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					m.loadFiles()
 					m.loadPreview()
 				}
-			} else if m.folderCursor < len(m.folders)-1 {
-				m.folderCursor++
-				m.folderScroll = clampScroll(m.folderCursor, m.folderScroll, 10)
-				m.fileCursor = 0
-				m.fileScroll = 0
-				m.loadFiles()
-				m.loadPreview()
+			} else {
+				totalFolderItems := len(m.folders)
+				if m.hasRootFiles {
+					totalFolderItems++
+				}
+				if m.folderCursor < totalFolderItems-1 {
+					m.folderCursor++
+					m.folderScroll = clampScroll(m.folderCursor, m.folderScroll, 10)
+					m.fileCursor = 0
+					m.fileScroll = 0
+					m.loadFiles()
+					m.loadPreview()
+				}
 			}
 		case panelFiles:
 			if m.fileCursor < len(m.files)-1 {

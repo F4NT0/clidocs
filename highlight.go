@@ -52,6 +52,110 @@ func highlightCode(content, filename string) string {
 }
 
 // ---------------------------------------------------------------------------
+// Keyword colorization
+// ---------------------------------------------------------------------------
+
+// reKeywordTodo matches the word TODO (whole word) in raw markdown.
+var reKeywordTodo = regexp.MustCompile(`\b(TODO)\b`)
+
+// reKeywordDoing matches DOING or WORKING (whole word) in raw markdown.
+var reKeywordDoing = regexp.MustCompile(`\b(DOING|WORKING)\b`)
+
+// reKeywordDone matches DONE or FINISH (whole word) in raw markdown.
+var reKeywordDone = regexp.MustCompile(`\b(DONE|FINISH)\b`)
+
+// reKeywordFail matches FAIL or NOT (whole word) in raw markdown.
+var reKeywordFail = regexp.MustCompile(`\b(FAIL|NOT)\b`)
+
+// Sentinel strings — unique tokens that glamour will pass through unchanged.
+const (
+	sentinelTodo    = "\U000E5100"
+	sentinelDoing   = "\U000E5101"
+	sentinelDone    = "\U000E5102"
+	sentinelFinish  = "\U000E5103"
+	sentinelFail    = "\U000E5104"
+	sentinelNot     = "\U000E5105"
+	sentinelWorking  = "\U000E5106"
+	sentinelCheckIcon = "\U000E5107"
+	sentinelXIcon     = "\U000E5108"
+	sentinelWorkIcon  = "\U000E5109"
+)
+
+const (
+	ansiReset     = "\033[0m"
+	ansiSoftBlue  = "\033[38;2;100;180;255m"
+	ansiYellow    = "\033[38;2;255;200;60m"
+	ansiSoftGreen = "\033[38;2;80;200;120m"
+	ansiRed       = "\033[38;2;220;80;80m"
+)
+
+var (
+	iconCheckGreen    = "\033[38;2;80;200;120m" + "\u2714" + ansiReset
+	iconXRed          = "\033[38;2;220;80;80m" + "\uf52f" + ansiReset
+	iconCircleCheck   = "\033[38;2;80;200;120m" + "\uf05d" + ansiReset
+	iconWorkYellow    = "\033[38;2;255;200;60m" + "\uea6c" + ansiReset
+)
+
+// injectKeywordSentinels replaces status keywords in raw markdown with
+// sentinel Unicode chars that glamour passes through unchanged.
+func injectKeywordSentinels(s string) string {
+	s = reKeywordTodo.ReplaceAllStringFunc(s, func(m string) string {
+		switch m {
+		case "TODO":
+			return sentinelTodo
+		}
+		return m
+	})
+	s = reKeywordDoing.ReplaceAllStringFunc(s, func(m string) string {
+		switch m {
+		case "DOING":
+			return sentinelDoing
+		case "WORKING":
+			return sentinelWorking
+		}
+		return m
+	})
+	s = reKeywordDone.ReplaceAllStringFunc(s, func(m string) string {
+		switch m {
+		case "DONE":
+			return sentinelDone
+		case "FINISH":
+			return sentinelFinish
+		}
+		return m
+	})
+	s = reKeywordFail.ReplaceAllStringFunc(s, func(m string) string {
+		switch m {
+		case "FAIL":
+			return sentinelFail
+		case "NOT":
+			return sentinelNot
+		}
+		return m
+	})
+	s = strings.ReplaceAll(s, ":check:", sentinelCheckIcon)
+	s = strings.ReplaceAll(s, ":x:", sentinelXIcon)
+	s = strings.ReplaceAll(s, ":work:", sentinelWorkIcon)
+	return s
+}
+
+// restoreKeywordColors replaces sentinels in the rendered output with
+// ANSI-colored keyword text (and icons where applicable).
+func restoreKeywordColors(s string) string {
+	s = strings.ReplaceAll(s, sentinelTodo, ansiSoftBlue+"TODO"+ansiReset)
+	s = strings.ReplaceAll(s, sentinelDoing, ansiYellow+"DOING"+ansiReset)
+	s = strings.ReplaceAll(s, sentinelWorking, ansiYellow+"WORKING"+ansiReset)
+	s = strings.ReplaceAll(s, sentinelDone, ansiSoftGreen+"DONE"+ansiReset)
+	s = strings.ReplaceAll(s, sentinelFinish, ansiSoftGreen+"FINISH"+ansiReset)
+	s = strings.ReplaceAll(s, sentinelFail, ansiRed+"FAIL"+ansiReset)
+	s = strings.ReplaceAll(s, sentinelNot, ansiRed+"NOT"+ansiReset)
+	s = strings.ReplaceAll(s, sentinelCheckIcon, iconCircleCheck)
+	s = strings.ReplaceAll(s, sentinelXIcon, iconXRed)
+	s = strings.ReplaceAll(s, sentinelWorkIcon, iconWorkYellow)
+	return s
+}
+
+// ---------------------------------------------------------------------------
 // Math / superscript helpers
 // ---------------------------------------------------------------------------
 
@@ -109,7 +213,8 @@ func preprocessMath(content string) string {
 	return content
 }
 
-func strPtr(s string) *string { return &s }
+func strPtr(s string) *string  { return &s }
+func boolPtr(b bool) *bool    { return &b }
 
 // renderMarkdown renders Markdown using glamour with a patched dark style:
 //   - fixes red squares on JSON code blocks (Error/Punctuation tokens → neutral)
@@ -118,17 +223,58 @@ func renderMarkdown(content string, width int) string {
 	if width < 40 {
 		width = 40
 	}
+	content = injectKeywordSentinels(content)
 	content = preprocessMath(content)
 
 	// Start from the built-in dark config and patch only what we need.
 	cfg := glamourStyles.DarkStyleConfig
 
-	// Fix 1: JSON red squares — Error and Punctuation chroma tokens inherit
-	// a red colour in the dark theme. Override them to plain foreground.
-	if cfg.CodeBlock.Chroma != nil {
-		neutral := strPtr("#e6edf3")
-		cfg.CodeBlock.Chroma.Error = ansi.StylePrimitive{Color: neutral, BackgroundColor: strPtr("")}
-		cfg.CodeBlock.Chroma.Punctuation = ansi.StylePrimitive{Color: neutral}
+	// Code block — dark panel background, vivid Chroma colors.
+	codeMargin := uint(1)
+	codeIndent := uint(1)
+	cfg.CodeBlock = ansi.StyleCodeBlock{
+		StyleBlock: ansi.StyleBlock{
+			StylePrimitive: ansi.StylePrimitive{
+				BackgroundColor: strPtr("#1e1e1e"),
+				Color:           strPtr("#d4d4d4"),
+			},
+			Margin: &codeMargin,
+			Indent: &codeIndent,
+		},
+		Theme: "github-dark",
+		Chroma: &ansi.Chroma{
+			Text:                ansi.StylePrimitive{Color: strPtr("#d4d4d4")},
+			Error:               ansi.StylePrimitive{Color: strPtr("#d4d4d4"), BackgroundColor: strPtr("")},
+			Comment:             ansi.StylePrimitive{Color: strPtr("#6a9955"), Italic: boolPtr(true)},
+			CommentPreproc:      ansi.StylePrimitive{Color: strPtr("#c586c0")},
+			Keyword:             ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			KeywordReserved:     ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			KeywordNamespace:    ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			KeywordType:         ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			Operator:            ansi.StylePrimitive{Color: strPtr("#d4d4d4")},
+			Punctuation:         ansi.StylePrimitive{Color: strPtr("#d4d4d4")},
+			Name:                ansi.StylePrimitive{Color: strPtr("#9cdcfe")},
+			NameBuiltin:         ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			NameTag:             ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			NameAttribute:       ansi.StylePrimitive{Color: strPtr("#9cdcfe")},
+			NameClass:           ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			NameConstant:        ansi.StylePrimitive{Color: strPtr("#9cdcfe")},
+			NameDecorator:       ansi.StylePrimitive{Color: strPtr("#dcdcaa")},
+			NameException:       ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			NameFunction:        ansi.StylePrimitive{Color: strPtr("#dcdcaa")},
+			NameOther:           ansi.StylePrimitive{Color: strPtr("#9cdcfe")},
+			Literal:             ansi.StylePrimitive{Color: strPtr("#ce9178")},
+			LiteralNumber:       ansi.StylePrimitive{Color: strPtr("#b5cea8")},
+			LiteralDate:         ansi.StylePrimitive{Color: strPtr("#ce9178")},
+			LiteralString:       ansi.StylePrimitive{Color: strPtr("#ce9178")},
+			LiteralStringEscape: ansi.StylePrimitive{Color: strPtr("#d7ba7d")},
+			GenericDeleted:      ansi.StylePrimitive{Color: strPtr("#f44747")},
+			GenericEmph:         ansi.StylePrimitive{Color: strPtr("#d4d4d4"), Italic: boolPtr(true)},
+			GenericInserted:     ansi.StylePrimitive{Color: strPtr("#b5cea8")},
+			GenericStrong:       ansi.StylePrimitive{Color: strPtr("#d4d4d4"), Bold: boolPtr(true)},
+			GenericSubheading:   ansi.StylePrimitive{Color: strPtr("#4ec9b0")},
+			Background:          ansi.StylePrimitive{BackgroundColor: strPtr("#1e1e1e")},
+		},
 	}
 
 	// Bold — orange.
@@ -180,5 +326,6 @@ func renderMarkdown(content string, width int) string {
 	if err != nil {
 		return content
 	}
+	out = restoreKeywordColors(out)
 	return strings.TrimRight(out, "\n")
 }
