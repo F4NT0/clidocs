@@ -75,7 +75,10 @@ const (
 	sentinelFinish  = "\U000E5103"
 	sentinelFail    = "\U000E5104"
 	sentinelNot     = "\U000E5105"
-	sentinelWorking = "\U000E5106"
+	sentinelWorking  = "\U000E5106"
+	sentinelCheckIcon = "\U000E5107"
+	sentinelXIcon     = "\U000E5108"
+	sentinelWorkIcon  = "\U000E5109"
 )
 
 const (
@@ -87,8 +90,10 @@ const (
 )
 
 var (
-	iconCheckGreen = "\033[38;2;80;200;120m" + "\uea71" + ansiReset
-	iconXRed       = "\033[38;2;220;80;80m" + "\uf057" + ansiReset
+	iconCheckGreen    = "\033[38;2;80;200;120m" + "\u2714" + ansiReset
+	iconXRed          = "\033[38;2;220;80;80m" + "\uf52f" + ansiReset
+	iconCircleCheck   = "\033[38;2;80;200;120m" + "\uf05d" + ansiReset
+	iconWorkYellow    = "\033[38;2;255;200;60m" + "\uea6c" + ansiReset
 )
 
 // injectKeywordSentinels replaces status keywords in raw markdown with
@@ -128,6 +133,9 @@ func injectKeywordSentinels(s string) string {
 		}
 		return m
 	})
+	s = strings.ReplaceAll(s, ":check:", sentinelCheckIcon)
+	s = strings.ReplaceAll(s, ":x:", sentinelXIcon)
+	s = strings.ReplaceAll(s, ":work:", sentinelWorkIcon)
 	return s
 }
 
@@ -137,10 +145,13 @@ func restoreKeywordColors(s string) string {
 	s = strings.ReplaceAll(s, sentinelTodo, ansiSoftBlue+"TODO"+ansiReset)
 	s = strings.ReplaceAll(s, sentinelDoing, ansiYellow+"DOING"+ansiReset)
 	s = strings.ReplaceAll(s, sentinelWorking, ansiYellow+"WORKING"+ansiReset)
-	s = strings.ReplaceAll(s, sentinelDone, iconCheckGreen+" "+ansiSoftGreen+"DONE"+ansiReset)
-	s = strings.ReplaceAll(s, sentinelFinish, iconCheckGreen+" "+ansiSoftGreen+"FINISH"+ansiReset)
-	s = strings.ReplaceAll(s, sentinelFail, iconXRed+" "+ansiRed+"FAIL"+ansiReset)
-	s = strings.ReplaceAll(s, sentinelNot, iconXRed+" "+ansiRed+"NOT"+ansiReset)
+	s = strings.ReplaceAll(s, sentinelDone, ansiSoftGreen+"DONE"+ansiReset)
+	s = strings.ReplaceAll(s, sentinelFinish, ansiSoftGreen+"FINISH"+ansiReset)
+	s = strings.ReplaceAll(s, sentinelFail, ansiRed+"FAIL"+ansiReset)
+	s = strings.ReplaceAll(s, sentinelNot, ansiRed+"NOT"+ansiReset)
+	s = strings.ReplaceAll(s, sentinelCheckIcon, iconCircleCheck)
+	s = strings.ReplaceAll(s, sentinelXIcon, iconXRed)
+	s = strings.ReplaceAll(s, sentinelWorkIcon, iconWorkYellow)
 	return s
 }
 

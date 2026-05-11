@@ -36,6 +36,8 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 - [Folder Search](#folder-search)
 - [Snippets Management](#snippets-management)
 - [Preview Panel](#preview-panel)
+  - [Keyword Colorization](#keyword-colorization)
+  - [Icon Shortcuts](#icon-shortcuts)
 - [Folder Favorites](#folder-favorites)
 - [Snippets Directory](#snippets-directory)
 - [Neovim Integration](#neovim-integration)
@@ -93,6 +95,8 @@ Organize, preview, and edit code snippets in a three-panel TUI — with syntax h
 - **Error modal word-wrap** — long error messages are automatically broken into multiple lines so they never overflow the terminal width
 - **Preview line truncation** — lines longer than the panel width are hard-truncated with ANSI-safe clipping, preventing long files from breaking the TUI layout
 - **Preview panel full-width** — markdown and code previews now use the full available panel width at any terminal size
+- **Markdown keyword colorization** — `TODO` (blue), `DOING`/`WORKING` (yellow), `DONE`/`FINISH` (green +  icon), `FAIL`/`NOT` (red +  icon) are automatically colored when rendered
+- **Markdown icon shortcodes** — `:check:` (), `:x:` (), `:work:` () are replaced with colored Nerd Font icons at render time
 - **Dark theme** — unified `#0d1117` background, GitHub-inspired palette
 
 </details>
@@ -519,6 +523,43 @@ A **`[MD]`** badge appears in the preview panel title when a markdown file is ac
 > **Note:** LaTeX math formulas (`$x^2$`, `$$\int$$`) are not rendered — the terminal has no math engine. Write formulas as ASCII (`x²`) or use fenced code blocks (` ```math `).
 
 <img src="images/markdown-preview.png" alt="Markdown preview" width="750">
+
+### Keyword Colorization
+
+Status keywords written anywhere in a markdown file are automatically colored when rendered in the Preview panel. No special syntax required — just write the word in uppercase.
+
+| Keyword | Color | Notes |
+|---|---|---|
+| `TODO` | Soft blue | Task not started |
+| `DOING` / `WORKING` | Yellow | Task in progress |
+| `DONE` / `FINISH` | Soft green | Task completed — also shows a `nf-cod-pass_filled` icon before the word |
+| `FAIL` / `NOT` | Red | Task failed — also shows a `nf-fa-times_circle` icon before the word |
+
+> **Requires a Nerd Font** in your terminal for the icons to render correctly (e.g. JetBrainsMono Nerd Font).
+
+<!-- screenshot: keyword colorization in action -->
+<!-- <img src="images/markdown-keywords.png" alt="Keyword colorization" width="750"> -->
+
+### Icon Shortcuts
+
+You can embed Nerd Font icons inline in any markdown file using shortcode syntax. They are replaced with colored icons at render time.
+
+| Shortcode | Icon | Color | Nerd Font glyph |
+|---|---|---|---|
+| `:check:` | `nf-fa-circle_check` | Green | `\uf05d` |
+| `:x:` | `nf-fa-times_circle` | Red | `\uf52f` |
+| `:work:` | `nf-cod-warning` | Yellow | `\uea6c` |
+
+**Example:**
+
+```markdown
+- :check: Deploy to production
+- :x: Rollback failed — investigate logs
+- :work: Pipeline running, waiting for results
+```
+
+<!-- screenshot: icon shortcodes rendered -->
+<!-- <img src="images/markdown-icons.png" alt="Icon shortcodes" width="750"> -->
 
 ### Copy to clipboard
 
