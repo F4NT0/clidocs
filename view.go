@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -31,11 +32,28 @@ func (m model) renderMain() string {
 		previewW = 20
 	}
 
-	folders := m.renderFoldersPanel(foldersW, totalH)
+	// Render clock
+	currentTime := time.Now().Format("15:04")
+	clockStr := lipgloss.NewStyle().
+		Foreground(colorAccentBlue).
+		Bold(true).
+		Render(currentTime)
+	clockPanel := lipgloss.NewStyle().
+		Width(foldersW).
+		Align(lipgloss.Center).
+		Render(clockStr)
+
+	// Adjust folders panel height to make room for clock
+	foldersH := totalH - 1 // 1 line for clock
+	folders := m.renderFoldersPanel(foldersW, foldersH)
+
+	// Combine folders panel with clock below it
+	foldersWithClock := lipgloss.JoinVertical(lipgloss.Left, folders, clockPanel)
+
 	files := m.renderFilesPanel(filesW, totalH)
 	preview := m.renderPreviewPanel(previewW, totalH)
 
-	body := lipgloss.JoinHorizontal(lipgloss.Top, folders, files, preview)
+	body := lipgloss.JoinHorizontal(lipgloss.Top, foldersWithClock, files, preview)
 
 	header := m.renderHeader()
 	statusbar := m.renderStatusBar()
@@ -439,11 +457,6 @@ func (m model) renderPreviewPanel(w, h int) string {
 	var contentLines []string
 	contentLines = append(contentLines, panelTitle)
 	contentLines = append(contentLines, mutedStyle.Render(strings.Repeat("─", w-4)))
-	if showPath {
-		pathStr := truncate(m.previewFilePath, w-6)
-		contentLines = append(contentLines,
-			" "+lipgloss.NewStyle().Foreground(colorOrange).Render(pathStr))
-	}
 
 	// search bar
 	if m.previewSearchActive {
@@ -803,6 +816,7 @@ func (m model) renderStatusBar() string {
 			help = "↑↓: scroll  /: find  L: line numbers  c: copy  e: edit in nvim  o: open folder  g: sync  Tab: next panel  q: quit"
 		}
 	}
+
 	return lipgloss.NewStyle().
 		Background(colorBg).
 		Foreground(colorFgMuted).

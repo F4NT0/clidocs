@@ -23,12 +23,12 @@ var (
 
 	panelStyle = lipgloss.NewStyle().
 			Background(colorBgPanel).
-			Border(lipgloss.NormalBorder()).
+			Border(lipgloss.RoundedBorder()).
 			BorderForeground(colorBorder)
 
 	activePanelStyle = lipgloss.NewStyle().
 				Background(colorBgPanel).
-				Border(lipgloss.NormalBorder()).
+				Border(lipgloss.RoundedBorder()).
 				BorderForeground(colorAccent)
 
 	headerActiveStyle = lipgloss.NewStyle().
