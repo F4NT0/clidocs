@@ -144,9 +144,7 @@ func (m model) renderFoldersPanel(w, h int) string {
 
 	// ── Title ─────────────────────────────────────────────────────────
 	titleText := " Folders"
-	if m.inParentView {
-		titleText = " " + filepath.Base(m.parentViewDir) + " " + mutedStyle.Render("← back")
-	} else if len(m.folderDirStack) > 0 {
+	if len(m.folderDirStack) > 0 {
 		titleText = " Folders " + mutedStyle.Render("← back")
 	} else if m.snippetsDir != m.origSnippetsDir {
 		titleText = " Folders " + mutedStyle.Render("H:home")
@@ -161,123 +159,23 @@ func (m model) renderFoldersPanel(w, h int) string {
 	}
 	lines = append(lines, mutedStyle.Render(strings.Repeat("─", innerW-1)))
 
-	if m.inParentView {
-		// ── Parent-view list: ~/ row + subfolder rows ─────────────────
-		subs := m.subfolderNames(m.parentViewDir)
-		// total items = 1 (~/) + len(subs)
-		totalItems := 1 + len(subs)
-		scroll := clampScroll(m.folderCursor, m.folderScroll, mainListH)
+	// ── Tree view rendering ────────────────────────────────────────────
+	treeLines := m.renderTreeLines(m.snippetsDir, "", 0, innerW)
+	
+	// Apply scrolling
+	scroll := clampScroll(m.folderCursor, m.folderScroll, mainListH)
+	
+	if len(treeLines) == 0 {
+		lines = append(lines, mutedStyle.Render("No folders yet"))
+		lines = append(lines, mutedStyle.Render("Press n to create"))
+	} else {
 		for row := 0; row < mainListH; row++ {
 			idx := scroll + row
-			if idx >= totalItems {
+			if idx >= len(treeLines) {
 				lines = append(lines, "")
 				continue
 			}
-			var rowStr string
-			if idx == 0 {
-				// ~/ entry
-				if m.folderCursor == 0 {
-					rowStr = arrowStyle.Render("> ") +
-						lipgloss.NewStyle().Foreground(colorAccentBlue).Render("󰉋 ") +
-						lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render("~/")
-				} else {
-					rowStr = "   " + mutedStyle.Render("󰉋 ") +
-						mutedStyle.Render("~/")
-				}
-			} else {
-				// subfolder entry
-				subIdx := idx - 1
-				name := subs[subIdx]
-				label := truncate(name, innerW-6)
-				subAbs := filepath.Join(m.parentViewDir, name)
-				hasChildren := len(m.subfolderNames(subAbs)) > 0
-				subMark := ""
-				if hasChildren {
-					subMark = mutedStyle.Render(" ›")
-				}
-				if m.folderCursor == idx {
-					rowStr = arrowStyle.Render("> ") +
-						lipgloss.NewStyle().Foreground(colorAccentBlue).Render(folderIcon) +
-						lipgloss.NewStyle().Foreground(colorAccentBlue).Render(label) +
-						subMark
-				} else {
-					rowStr = "   " + mutedStyle.Render(folderIcon) +
-						lipgloss.NewStyle().Foreground(colorFg).Render(label) +
-						subMark
-				}
-			}
-			lines = append(lines, rowStr)
-		}
-	} else {
-		// ── Main folders list (virtual scroll, no scrollbar) ─────────────
-		displayFolders := m.filteredFolders()
-
-		// Build virtual list: when hasRootFiles insert ~/ at index 0
-		type virtualEntry struct {
-			isRoot bool
-			name   string
-		}
-		var virtualList []virtualEntry
-		if m.hasRootFiles && !m.folderSearchActive {
-			virtualList = append(virtualList, virtualEntry{isRoot: true})
-		}
-		for _, f := range displayFolders {
-			virtualList = append(virtualList, virtualEntry{name: f})
-		}
-
-		scroll := clampScroll(m.folderCursor, m.folderScroll, mainListH)
-
-		if len(virtualList) == 0 {
-			lines = append(lines, mutedStyle.Render("No folders yet"))
-			lines = append(lines, mutedStyle.Render("Press n to create"))
-		} else {
-			for row := 0; row < mainListH; row++ {
-				idx := scroll + row
-				if idx >= len(virtualList) {
-					lines = append(lines, "")
-					continue
-				}
-				entry := virtualList[idx]
-				isSelected := idx == m.folderCursor
-
-				var rowStr string
-				if entry.isRoot {
-					if isSelected {
-						rowStr = arrowStyle.Render("> ") +
-							lipgloss.NewStyle().Foreground(colorAccentBlue).Render("󰉋 ") +
-							lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render("~/")
-					} else {
-						rowStr = "   " + mutedStyle.Render("󰉋 ") + mutedStyle.Render("~/")
-					}
-					lines = append(lines, rowStr)
-					continue
-				}
-				name := entry.name
-				label := truncate(name, innerW-6)
-				isFav := m.isFavorite(name)
-				favMark := ""
-				if isFav {
-					favMark = " " + starIcon
-				}
-				subMark := ""
-				if m.hasSubfolders(name) {
-					subMark = mutedStyle.Render(" ›")
-				}
-				if isSelected {
-					rowStr = arrowStyle.Render("> ") +
-						lipgloss.NewStyle().Foreground(colorAccentBlue).Render(folderIcon) +
-						lipgloss.NewStyle().Foreground(colorAccentBlue).Render(label) +
-						subMark +
-						favMark
-				} else {
-					rowStr = "   " +
-						mutedStyle.Render(folderIcon) +
-						lipgloss.NewStyle().Foreground(colorFg).Render(label) +
-						subMark +
-						favMark
-				}
-				lines = append(lines, rowStr)
-			}
+			lines = append(lines, treeLines[idx])
 		}
 	}
 
@@ -292,6 +190,107 @@ func (m model) renderFoldersPanel(w, h int) string {
 		style = activePanelStyle
 	}
 	return style.Width(w).Height(h).Render(content)
+}
+
+// renderTreeLines recursively renders the folder tree
+func (m model) renderTreeLines(dir, indent string, depth int, maxWidth int) []string {
+	var lines []string
+	
+	// Get directories in this folder
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return lines
+	}
+	
+	var dirs []string
+	for _, e := range entries {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			dirs = append(dirs, e.Name())
+		}
+	}
+	sort.Strings(dirs)
+	
+	// If we're at the root and hasRootFiles is true, add ~/ entry
+	if depth == 0 && m.hasRootFiles {
+		absPath := dir
+		isSelected := m.treeCursorPath == absPath
+		hasChildren := len(dirs) > 0
+		expanded := m.expandedFolders[absPath]
+		
+		var rowStr string
+		if isSelected {
+			rowStr = arrowStyle.Render("> ")
+		} else {
+			rowStr = "  "
+		}
+		rowStr += lipgloss.NewStyle().Foreground(colorAccentBlue).Render("󰉋 ")
+		rowStr += lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render("~/")
+		
+		if hasChildren {
+			if expanded {
+				rowStr += " " + mutedStyle.Render("▼")
+			} else {
+				rowStr += " " + mutedStyle.Render("▶")
+			}
+		}
+		lines = append(lines, rowStr)
+		
+		// If expanded, render children
+		if expanded {
+			for _, d := range dirs {
+				childPath := filepath.Join(dir, d)
+				childLines := m.renderTreeLines(childPath, "  ", depth+1, maxWidth)
+				lines = append(lines, childLines...)
+			}
+		}
+		return lines
+	}
+	
+	// Render regular folders
+	for _, name := range dirs {
+		absPath := filepath.Join(dir, name)
+		isSelected := m.treeCursorPath == absPath
+		isFav := m.isFavoriteAbs(absPath)
+		hasChildren := m.hasSubfoldersAt(absPath)
+		expanded := m.expandedFolders[absPath]
+		
+		var rowStr string
+		if isSelected {
+			rowStr = arrowStyle.Render("> ")
+		} else {
+			rowStr = "  "
+		}
+		rowStr += indent + lipgloss.NewStyle().Foreground(colorAccentBlue).Render(folderIcon)
+		
+		label := truncate(name, maxWidth-len(indent)-6)
+		if isSelected {
+			rowStr += lipgloss.NewStyle().Foreground(colorAccentBlue).Render(label)
+		} else {
+			rowStr += lipgloss.NewStyle().Foreground(colorFg).Render(label)
+		}
+		
+		if isFav {
+			rowStr += " " + starIcon
+		}
+		
+		if hasChildren {
+			if expanded {
+				rowStr += " " + mutedStyle.Render("▼")
+			} else {
+				rowStr += " " + mutedStyle.Render("▶")
+			}
+		}
+		
+		lines = append(lines, rowStr)
+		
+		// If expanded, render children recursively
+		if expanded {
+			childLines := m.renderTreeLines(absPath, indent+"  ", depth+1, maxWidth)
+			lines = append(lines, childLines...)
+		}
+	}
+	
+	return lines
 }
 
 
@@ -1154,7 +1153,12 @@ func truncate(s string, max int) string {
 }
 
 func (m model) renderNewSubfolderModal() string {
-	parent := m.currentFolderName()
+	var parent string
+	if m.treeCursorPath != "" {
+		parent = filepath.Base(m.treeCursorPath)
+	} else {
+		parent = m.currentFolderName()
+	}
 	title := lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render(" New Subfolder")
 	sep := mutedStyle.Render(strings.Repeat("─", 44))
 	info := mutedStyle.Render("Inside: ") + lipgloss.NewStyle().Foreground(colorOrange).Render(parent)

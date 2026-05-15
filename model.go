@@ -154,6 +154,10 @@ type model struct {
 	// splash shown only when no CLI arg
 	showSplash bool
 	splashChoice int // 0=default, 1=pick
+
+	// tree view expansion state
+	expandedFolders map[string]bool // folder paths that are expanded in tree view
+	treeCursorPath string // path of the currently selected folder in tree view
 }
 
 type subNavEntry struct {
@@ -179,15 +183,17 @@ func newModel(dir string) model {
 	gitCfg, gitLoaded := loadGitConfig(dir)
 
 	m := model{
-		snippetsDir:  dir,
-		modal:        modalNone,
-		modalInput:   ti,
-		modalInput2:  ti2,
-		modalInput3:  ti3,
-		activePanel:  panelFolders,
-		gitCfg:          gitCfg,
-		gitCfgLoaded:    gitLoaded,
-		origSnippetsDir: dir,
+		snippetsDir:       dir,
+		modal:             modalNone,
+		modalInput:        ti,
+		modalInput2:       ti2,
+		modalInput3:       ti3,
+		activePanel:       panelFolders,
+		gitCfg:            gitCfg,
+		gitCfgLoaded:      gitLoaded,
+		origSnippetsDir:   dir,
+		expandedFolders:   make(map[string]bool),
+		treeCursorPath:    dir, // Initialize cursor to root directory
 	}
 	m.loadFolders()
 	m.loadFavorites()
@@ -294,6 +300,20 @@ func (m *model) favDisplayLabel(absPath string) string {
 
 // currentFolderInContext returns the folder name the cursor is currently on.
 func (m model) currentFolderInContext() string {
+	// In tree view, use treeCursorPath
+	if m.treeCursorPath != "" {
+		// Return the folder name relative to snippetsDir
+		if m.treeCursorPath == m.snippetsDir {
+			return "" // At root
+		}
+		rel, err := filepath.Rel(m.snippetsDir, m.treeCursorPath)
+		if err != nil {
+			return filepath.Base(m.treeCursorPath)
+		}
+		return rel
+	}
+	
+	// Fallback to old logic
 	if false { // inFavSection removed; favorites navigate via modal then set folderCursor
 		if m.favCursor >= 0 && m.favCursor < len(m.favorites) {
 			return m.favorites[m.favCursor]
@@ -343,30 +363,38 @@ func (m *model) loadFolders() {
 func (m *model) loadFiles() {
 	m.files = []fileEntry{}
 	var dir string
-	if m.inParentView {
-		if m.folderCursor == 0 {
-			// ~/ selected: show direct files of the parent folder
-			dir = m.parentViewDir
+	
+	// In tree view, use treeCursorPath
+	if m.treeCursorPath != "" {
+		dir = m.treeCursorPath
+	} else {
+		// Fallback to old logic
+		if m.inParentView {
+			if m.folderCursor == 0 {
+				// ~/ selected: show direct files of the parent folder
+				dir = m.parentViewDir
+			} else {
+				// a subfolder row selected
+				subs := m.subfolderNames(m.parentViewDir)
+				idx := m.folderCursor - 1
+				if idx >= len(subs) {
+					return
+				}
+				dir = filepath.Join(m.parentViewDir, subs[idx])
+			}
+		} else if m.hasRootFiles && m.folderCursor == 0 {
+			// ~/ root entry selected: show files directly in snippetsDir
+			dir = m.snippetsDir
 		} else {
-			// a subfolder row selected
-			subs := m.subfolderNames(m.parentViewDir)
-			idx := m.folderCursor - 1
-			if idx >= len(subs) {
+			// normal folder selected — account for the ~/ offset when hasRootFiles
+			folderName := m.currentFolderName()
+			if folderName == "" {
 				return
 			}
-			dir = filepath.Join(m.parentViewDir, subs[idx])
+			dir = filepath.Join(m.snippetsDir, folderName)
 		}
-	} else if m.hasRootFiles && m.folderCursor == 0 {
-		// ~/ root entry selected: show files directly in snippetsDir
-		dir = m.snippetsDir
-	} else {
-		// normal folder selected — account for the ~/ offset when hasRootFiles
-		folderName := m.currentFolderName()
-		if folderName == "" {
-			return
-		}
-		dir = filepath.Join(m.snippetsDir, folderName)
 	}
+	
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
@@ -419,6 +447,12 @@ func (m model) resolvedFile() (fileEntry, bool) {
 // currentFilesDir returns the absolute directory whose files are shown in the
 // snippet panel. In inParentView mode the result depends on folderCursor.
 func (m model) currentFilesDir() string {
+	// In tree view, use treeCursorPath
+	if m.treeCursorPath != "" {
+		return m.treeCursorPath
+	}
+	
+	// Fallback to old logic
 	if m.inParentView {
 		if m.folderCursor == 0 {
 			return m.parentViewDir
@@ -683,6 +717,66 @@ func (m *model) hasSubfolders(relPath string) bool {
 		}
 	}
 	return false
+}
+
+// hasSubfoldersAt returns true if the folder at the given absolute path contains subdirectories.
+func (m *model) hasSubfoldersAt(absPath string) bool {
+	entries, err := os.ReadDir(absPath)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			return true
+		}
+	}
+	return false
+}
+
+// getTreeLines returns a flat list of all visible tree lines (paths) in order
+func (m model) getTreeLines(dir string, depth int) []string {
+	var lines []string
+	
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return lines
+	}
+	
+	var dirs []string
+	for _, e := range entries {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			dirs = append(dirs, e.Name())
+		}
+	}
+	sort.Strings(dirs)
+	
+	// If we're at the root and hasRootFiles is true, add ~/ entry
+	if depth == 0 && m.hasRootFiles {
+		absPath := dir
+		lines = append(lines, absPath)
+		
+		// If expanded, add children
+		if m.expandedFolders[absPath] {
+			for _, d := range dirs {
+				childPath := filepath.Join(dir, d)
+				lines = append(lines, m.getTreeLines(childPath, depth+1)...)
+			}
+		}
+		return lines
+	}
+	
+	// Render regular folders
+	for _, name := range dirs {
+		absPath := filepath.Join(dir, name)
+		lines = append(lines, absPath)
+		
+		// If expanded, add children recursively
+		if m.expandedFolders[absPath] {
+			lines = append(lines, m.getTreeLines(absPath, depth+1)...)
+		}
+	}
+	
+	return lines
 }
 
 // loadSubNavEntries populates subNavEntries for the current subNavStack path.
