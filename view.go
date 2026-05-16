@@ -224,12 +224,19 @@ func (m model) renderFoldersPanel(w, h int) string {
 
 				var rowStr string
 				if entry.isRoot {
+					// ~/  — check if snippetsDir itself is a favorite
+					rootIsFav := m.isFavoriteAbs(m.snippetsDir)
+					rootFavMark := ""
+					if rootIsFav {
+						rootFavMark = " " + starIcon
+					}
 					if isSelected {
 						rowStr = arrowStyle.Render("> ") +
 							lipgloss.NewStyle().Foreground(colorAccentBlue).Render("󰉋 ") +
-							lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render("~/")
+							lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render("~/") +
+							rootFavMark
 					} else {
-						rowStr = "   " + mutedStyle.Render("󰉋 ") + mutedStyle.Render("~/")
+						rowStr = "   " + mutedStyle.Render("󰉋 ") + mutedStyle.Render("~/") + rootFavMark
 					}
 					lines = append(lines, rowStr)
 					continue
@@ -245,7 +252,21 @@ func (m model) renderFoldersPanel(w, h int) string {
 				if m.hasSubfolders(name) {
 					subMark = mutedStyle.Render(" ›")
 				}
-				if isSelected {
+				// Determine the real folder index for multi-delete highlighting
+				folderIdx := idx
+				if m.hasRootFiles {
+					folderIdx = idx - 1 // account for the ~/ virtual entry
+				}
+				isMultiSelected := m.multiDeleteMode && m.multiDeleteSelected[folderIdx]
+				if isMultiSelected {
+					// highlight in red for multi-delete selection
+					redStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7b72")).Bold(true)
+					rowStr = arrowStyle.Render("> ") +
+						redStyle.Render(folderIcon) +
+						redStyle.Render(label) +
+						subMark +
+						favMark
+				} else if isSelected {
 					rowStr = arrowStyle.Render("> ") +
 						lipgloss.NewStyle().Foreground(colorAccentBlue).Render(folderIcon) +
 						lipgloss.NewStyle().Foreground(colorAccentBlue).Render(label) +
@@ -789,13 +810,15 @@ func (m model) renderStatusBar() string {
 		} else {
 			help = "Type word then Enter to search  Esc: cancel"
 		}
+	} else if m.multiDeleteMode {
+		help = "MULTI-DELETE: Space=select/deselect  X=confirm  Esc=cancel  ↑↓: navigate"
 	} else {
 		switch m.activePanel {
 		case panelFolders:
 			if len(m.folderDirStack) > 0 {
-				help = "↑↓: folders  Enter: open  ←: back  n: new  N: new subfolder  R: rename  D: delete  f: fav  /: search  q: quit"
+				help = "↑↓: folders  Enter: open  ←: back  n: new  N: new subfolder  r: rename  x: delete  X: multi-delete  d: fav  D: favs  /: search  q: quit"
 			} else {
-				help = "↑↓: folders  Enter: open  n: new  N: new subfolder  R: rename  D: delete  f: fav  /: search  o: dir info  q: quit"
+				help = "↑↓: folders  Enter: open  n: new  N: new subfolder  r: rename  x: delete  X: multi-delete  d: fav  D: favs  /: search  o: location  q: quit"
 			}
 		case panelFiles:
 			help = "↑↓: files  Enter: edit  /: search  n: new  r: rename  m: move  c: import  d: delete  g: sync  G: git config  Tab: next panel"
@@ -866,6 +889,12 @@ func (m model) renderWithModal() string {
 		modal = m.renderHelpConsoleModal()
 	case modalNvimGuide:
 		modal = m.renderNvimGuideModal()
+	case modalSubfolderSelect:
+		modal = m.renderSubfolderSelectModal()
+	case modalMultiDeleteConfirm:
+		modal = m.renderMultiDeleteConfirmModal()
+	case modalFolderSearch:
+		modal = m.renderFolderSearchModal()
 	}
 
 	return overlayModal(base, modal, m.width, m.height)
@@ -873,7 +902,7 @@ func (m model) renderWithModal() string {
 
 func (m model) renderFavoritesModal() string {
 	title := lipgloss.NewStyle().Foreground(colorOrange).Bold(true).Render(" ★ Favorites")
-	sep := mutedStyle.Render(strings.Repeat("─", 44))
+	sep := mutedStyle.Render(strings.Repeat("─", 48))
 
 	var rows []string
 	rows = append(rows, title, sep)
@@ -882,7 +911,7 @@ func (m model) renderFavoritesModal() string {
 		rows = append(rows, mutedStyle.Render("No favorites yet"))
 	} else {
 		for i, absPath := range m.favorites {
-			label := truncate(m.favDisplayLabel(absPath), 38)
+			label := truncate(m.favDisplayLabel(absPath), 40)
 			if i == m.favCursor {
 				rows = append(rows,
 					arrowStyle.Render("> ")+
@@ -896,7 +925,7 @@ func (m model) renderFavoritesModal() string {
 		}
 	}
 
-	rows = append(rows, sep, helpStyle.Render("↑↓: navigate   Enter: go to folder   f: unfavorite   Esc: close"))
+	rows = append(rows, sep, helpStyle.Render("↑↓: navigate   Enter: go to folder   o: open in Explorer   f: unfavorite   Esc: close"))
 	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
 }
 
@@ -1041,10 +1070,24 @@ func (m model) renderRenameFolderModal() string {
 
 func (m model) renderDeleteFolderModal() string {
 	name := m.currentFolderName()
+	// Build full relative path for display
+	var fullPath string
+	root := m.origSnippetsDir
+	if root == "" {
+		root = m.snippetsDir
+	}
+	absPath := filepath.Join(m.snippetsDir, name)
+	rel, err := filepath.Rel(root, absPath)
+	if err != nil {
+		fullPath = name
+	} else {
+		fullPath = filepath.ToSlash(rel) + "/"
+	}
+
 	title := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7b72")).Bold(true).Render(" Delete Folder")
-	sep := mutedStyle.Render(strings.Repeat("─", 44))
+	sep := mutedStyle.Render(strings.Repeat("─", 48))
 	warn := lipgloss.NewStyle().Foreground(colorFg).Render("Delete folder and ALL its contents?")
-	nameStr := lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render("  " + name)
+	nameStr := lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render("  " + fullPath)
 	alert := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7b72")).Render("This cannot be undone.")
 	help := helpStyle.Render("Enter / y: delete    Esc / n: cancel")
 	return modalStyle.Render(
@@ -1385,4 +1428,127 @@ func truncateAnsiLine(s string, maxVisible int) string {
 		visible++
 	}
 	return out.String()
+}
+
+// renderSubfolderSelectModal renders the "Select the subfolder" modal.
+func (m model) renderSubfolderSelectModal() string {
+	// Build breadcrumb
+	crumb := strings.Join(m.subSelectStack, "/") + "/"
+	title := modalTitleStyle.Render(" Select the subfolder to open")
+	breadcrumb := mutedStyle.Render("  " + crumb)
+	sep := mutedStyle.Render(strings.Repeat("─", 50))
+
+	var rows []string
+	rows = append(rows, title, breadcrumb, sep)
+
+	const maxVisible = 10
+	start := 0
+	if m.subSelectCursor >= start+maxVisible {
+		start = m.subSelectCursor - maxVisible + 1
+	}
+
+	if len(m.subSelectEntries) == 0 {
+		rows = append(rows, mutedStyle.Render("(no subfolders)"))
+	} else {
+		for i := start; i < len(m.subSelectEntries) && i < start+maxVisible; i++ {
+			sub := m.subSelectEntries[i]
+			displayPath := m.subSelectDisplayPath(sub)
+			label := truncate(displayPath, 44)
+			// Check if sub itself has subfolders (to show › indicator)
+			subAbsParts := append(append([]string{m.snippetsDir}, m.subSelectStack...), sub)
+			subAbs := filepath.Join(subAbsParts...)
+			hasSubs := len(m.subfolderNames(subAbs)) > 0
+			subMark := ""
+			if hasSubs {
+				subMark = mutedStyle.Render(" ›")
+			}
+			if i == m.subSelectCursor {
+				rows = append(rows,
+					arrowStyle.Render("> ")+
+						lipgloss.NewStyle().Foreground(colorAccentBlue).Render("󰉋 ")+
+						lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render(label)+
+						subMark)
+			} else {
+				rows = append(rows,
+					"   "+mutedStyle.Render("󰉋 ")+
+						lipgloss.NewStyle().Foreground(colorFg).Render(label)+
+						subMark)
+			}
+		}
+	}
+
+	rows = append(rows, sep,
+		helpStyle.Render("Enter: Select  →: Access subfolders  ←: Back to parent  q: Exit"))
+	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
+}
+
+// renderMultiDeleteConfirmModal renders the confirmation modal for multi-folder deletion.
+func (m model) renderMultiDeleteConfirmModal() string {
+	title := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7b72")).Bold(true).Render(" Delete Folders")
+	sep := mutedStyle.Render(strings.Repeat("─", 48))
+	warn := lipgloss.NewStyle().Foreground(colorFg).Render("Delete the following folders and ALL their contents?")
+	alert := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7b72")).Render("This cannot be undone.")
+
+	var rows []string
+	rows = append(rows, title, "", warn)
+
+	for idx := range m.multiDeleteSelected {
+		if idx < len(m.folders) {
+			name := m.folders[idx]
+			rows = append(rows,
+				"  "+lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7b72")).Bold(true).Render("  "+name))
+		}
+	}
+
+	rows = append(rows, "", alert, sep,
+		helpStyle.Render("Enter / y: delete all    Esc / n: cancel"))
+	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
+}
+
+// renderFolderSearchModal renders the folder search modal.
+func (m model) renderFolderSearchModal() string {
+	title := modalTitleStyle.Render(" Search Folder")
+	sep := mutedStyle.Render(strings.Repeat("─", 48))
+
+	// Search bar
+	cur := lipgloss.NewStyle().Background(colorAccentBlue).Foreground(colorBg).Render(" ")
+	searchBar := lipgloss.NewStyle().Foreground(colorAccentBlue).Render("/ ") +
+		lipgloss.NewStyle().Foreground(colorFg).Render(m.folderSearchModalQuery) +
+		cur
+
+	var rows []string
+	rows = append(rows, title, searchBar, sep)
+
+	const maxVisible = 12
+	results := m.folderSearchModalResults
+	start := 0
+	if m.folderSearchModalCursor >= start+maxVisible {
+		start = m.folderSearchModalCursor - maxVisible + 1
+	}
+
+	if len(results) == 0 {
+		if m.folderSearchModalQuery != "" {
+			rows = append(rows, mutedStyle.Render("No folders found for: ")+
+				lipgloss.NewStyle().Foreground(colorAccentBlue).Render(m.folderSearchModalQuery))
+		} else {
+			rows = append(rows, mutedStyle.Render("Type to search folders..."))
+		}
+	} else {
+		for i := start; i < len(results) && i < start+maxVisible; i++ {
+			label := truncate(results[i].displayPath, 44)
+			if i == m.folderSearchModalCursor {
+				rows = append(rows,
+					arrowStyle.Render("> ")+
+						lipgloss.NewStyle().Foreground(colorAccentBlue).Render("󰉋 ")+
+						lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render(label))
+			} else {
+				rows = append(rows,
+					"   "+mutedStyle.Render("󰉋 ")+
+						lipgloss.NewStyle().Foreground(colorFg).Render(label))
+			}
+		}
+	}
+
+	rows = append(rows, sep, helpStyle.Render("Type: filter  ↑↓: navigate  Enter: go to folder  Esc: close"))
+	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
 }

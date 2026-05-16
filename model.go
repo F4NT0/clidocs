@@ -52,6 +52,9 @@ const (
 	modalDirBrowser
 	modalMoveFileBrowse
 	modalNvimGuide
+	modalSubfolderSelect   // "Select the subfolder" modal (docs workflow)
+	modalMultiDeleteConfirm // multi-folder deletion confirmation
+	modalFolderSearch      // folder search modal
 )
 
 type fileEntry struct {
@@ -154,11 +157,31 @@ type model struct {
 	// splash shown only when no CLI arg
 	showSplash bool
 	splashChoice int // 0=default, 1=pick
+
+	// subfolder selection modal (opened when entering a folder with subfolders)
+	subSelectStack   []string // breadcrumb path segments from snippetsDir
+	subSelectEntries []string // subfolder names at current level
+	subSelectCursor  int
+
+	// multi-folder deletion
+	multiDeleteMode     bool
+	multiDeleteSelected map[int]bool // set of folderCursor indices selected for deletion
+
+	// folder search modal
+	folderSearchModalQuery   string
+	folderSearchModalResults []folderSearchResult
+	folderSearchModalCursor  int
 }
 
 type subNavEntry struct {
 	name     string
 	isDir    bool
+}
+
+// folderSearchResult holds a search result for the folder search modal.
+type folderSearchResult struct {
+	displayPath string // relative path from snippetsDir (e.g. "work/test")
+	absPath     string // absolute path to folder
 }
 
 func newModel(dir string) model {
@@ -703,6 +726,75 @@ func (m *model) loadSubNavEntries() {
 			isDir: e.IsDir(),
 		})
 	}
+}
+
+// subSelectAbsDir returns the absolute path for the current subSelectStack level.
+func (m *model) subSelectAbsDir() string {
+	if len(m.subSelectStack) == 0 {
+		return ""
+	}
+	parts := append([]string{m.snippetsDir}, m.subSelectStack...)
+	return filepath.Join(parts...)
+}
+
+// loadSubSelectEntries populates subSelectEntries for the current subSelectStack.
+func (m *model) loadSubSelectEntries() {
+	dir := m.subSelectAbsDir()
+	entries, err := os.ReadDir(dir)
+	m.subSelectEntries = nil
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			m.subSelectEntries = append(m.subSelectEntries, e.Name())
+		}
+	}
+	sort.Strings(m.subSelectEntries)
+}
+
+// subSelectDisplayPath returns the display path for a subfolder entry in the modal.
+// rootName is the top-level folder name (first element of subSelectStack).
+func (m *model) subSelectDisplayPath(subName string) string {
+	parts := append([]string{}, m.subSelectStack...)
+	parts = append(parts, subName)
+	return strings.Join(parts, "/") + "/"
+}
+
+// searchFoldersRecursive walks the snippetsDir recursively and returns all
+// folders whose name (or relative path) contains query (case-insensitive).
+func (m *model) searchFoldersRecursive(query string) []folderSearchResult {
+	q := strings.ToLower(strings.TrimSpace(query))
+	var results []folderSearchResult
+	var walk func(dir, rel string)
+	walk = func(dir, rel string) {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			return
+		}
+		for _, e := range entries {
+			if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+				continue
+			}
+			var displayRel string
+			if rel == "" {
+				displayRel = e.Name()
+			} else {
+				displayRel = rel + "/" + e.Name()
+			}
+			absPath := filepath.Join(dir, e.Name())
+			// match against the full relative path OR just the folder name
+			if q == "" || strings.Contains(strings.ToLower(displayRel), q) {
+				results = append(results, folderSearchResult{
+					displayPath: displayRel + "/",
+					absPath:     absPath,
+				})
+			}
+			walk(absPath, displayRel)
+		}
+	}
+	walk(m.snippetsDir, "")
+	return results
 }
 
 func relativeTime(t time.Time) string {
