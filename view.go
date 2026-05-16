@@ -157,14 +157,20 @@ func (m model) renderFoldersPanel(w, h int) string {
 			}
 			var rowStr string
 			if idx == 0 {
-				// ~/ entry
+				// ~/ entry — show star if parentViewDir itself is a favorite
+				parentIsFav := m.isFavoriteAbs(m.parentViewDir)
+				favMark := ""
+				if parentIsFav {
+					favMark = " " + starIcon
+				}
 				if m.folderCursor == 0 {
 					rowStr = arrowStyle.Render("> ") +
 						lipgloss.NewStyle().Foreground(colorAccentBlue).Render("󰉋 ") +
-						lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render("~/")
+						lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render("~/") +
+						favMark
 				} else {
 					rowStr = "   " + mutedStyle.Render("󰉋 ") +
-						mutedStyle.Render("~/")
+						mutedStyle.Render("~/") + favMark
 				}
 			} else {
 				// subfolder entry
@@ -177,15 +183,21 @@ func (m model) renderFoldersPanel(w, h int) string {
 				if hasChildren {
 					subMark = mutedStyle.Render(" ›")
 				}
+				// Show star if this subfolder is a favorite
+				isFav := m.isFavoriteAbs(subAbs)
+				favMark := ""
+				if isFav {
+					favMark = " " + starIcon
+				}
 				if m.folderCursor == idx {
 					rowStr = arrowStyle.Render("> ") +
 						lipgloss.NewStyle().Foreground(colorAccentBlue).Render(folderIcon) +
 						lipgloss.NewStyle().Foreground(colorAccentBlue).Render(label) +
-						subMark
+						subMark + favMark
 				} else {
 					rowStr = "   " + mutedStyle.Render(folderIcon) +
 						lipgloss.NewStyle().Foreground(colorFg).Render(label) +
-						subMark
+						subMark + favMark
 				}
 			}
 			lines = append(lines, rowStr)
@@ -1051,9 +1063,24 @@ func overlayModal(base, modal string, width, height int) string {
 }
 
 func (m model) renderRenameFolderModal() string {
-	old := m.currentFolderName()
+	// Use folderOpTargetAbs for the correct display path
+	absPath := m.folderOpTargetAbs
+	if absPath == "" {
+		absPath = filepath.Join(m.snippetsDir, m.currentFolderName())
+	}
+	root := m.origSnippetsDir
+	if root == "" {
+		root = m.snippetsDir
+	}
+	var displayPath string
+	rel, err := filepath.Rel(root, absPath)
+	if err != nil {
+		displayPath = filepath.Base(absPath)
+	} else {
+		displayPath = filepath.ToSlash(rel) + "/"
+	}
 	title := modalTitleStyle.Render(" Rename Folder")
-	current := mutedStyle.Render("Current: ") + lipgloss.NewStyle().Foreground(colorAccentBlue).Render(old)
+	current := mutedStyle.Render("Current: ") + lipgloss.NewStyle().Foreground(colorAccentBlue).Render(displayPath)
 	inputRendered := inputStyle.Width(42).Render(m.modalInput.View())
 	help := helpStyle.Render("Enter: confirm  Esc: cancel")
 	return modalStyle.Render(
@@ -1069,14 +1096,18 @@ func (m model) renderRenameFolderModal() string {
 }
 
 func (m model) renderDeleteFolderModal() string {
-	name := m.currentFolderName()
+	// Use folderOpTargetAbs (set when modal was opened) for the correct path.
+	absPath := m.folderOpTargetAbs
+	if absPath == "" {
+		absPath = filepath.Join(m.snippetsDir, m.currentFolderName())
+	}
+	name := filepath.Base(absPath)
 	// Build full relative path for display
 	var fullPath string
 	root := m.origSnippetsDir
 	if root == "" {
 		root = m.snippetsDir
 	}
-	absPath := filepath.Join(m.snippetsDir, name)
 	rel, err := filepath.Rel(root, absPath)
 	if err != nil {
 		fullPath = name
@@ -1183,10 +1214,25 @@ func truncate(s string, max int) string {
 }
 
 func (m model) renderNewSubfolderModal() string {
-	parent := m.currentFolderName()
+	// Use newSubfolderParentAbs (set when modal opened) to display the correct parent name/path.
+	var parentDisplay string
+	if m.newSubfolderParentAbs != "" {
+		root := m.origSnippetsDir
+		if root == "" {
+			root = m.snippetsDir
+		}
+		rel, err := filepath.Rel(root, m.newSubfolderParentAbs)
+		if err != nil {
+			parentDisplay = filepath.Base(m.newSubfolderParentAbs)
+		} else {
+			parentDisplay = filepath.ToSlash(rel) + "/"
+		}
+	} else {
+		parentDisplay = m.currentFolderName()
+	}
 	title := lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render(" New Subfolder")
-	sep := mutedStyle.Render(strings.Repeat("─", 44))
-	info := mutedStyle.Render("Inside: ") + lipgloss.NewStyle().Foreground(colorOrange).Render(parent)
+	sep := mutedStyle.Render(strings.Repeat("─", 48))
+	info := mutedStyle.Render("Inside: ") + lipgloss.NewStyle().Foreground(colorOrange).Render(parentDisplay)
 	rows := []string{title, sep, info, "", " " + m.modalInput.View(), ""}
 	rows = append(rows, sep, mutedStyle.Render("Enter: create  Esc: cancel"))
 	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))

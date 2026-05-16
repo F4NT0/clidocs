@@ -163,6 +163,13 @@ type model struct {
 	subSelectEntries []string // subfolder names at current level
 	subSelectCursor  int
 
+	// new subfolder modal: abs path of the folder inside which to create the subfolder
+	newSubfolderParentAbs string
+
+	// abs path of the folder targeted by rename/delete modals
+	// (set when modal is opened so inParentView is correctly accounted for)
+	folderOpTargetAbs string
+
 	// multi-folder deletion
 	multiDeleteMode     bool
 	multiDeleteSelected map[int]bool // set of folderCursor indices selected for deletion
@@ -270,6 +277,42 @@ func (m *model) currentFolderAbsPath() string {
 	return filepath.Join(m.snippetsDir, name)
 }
 
+// selectedFolderAbs returns the true absolute path of the folder the cursor is
+// on, correctly accounting for inParentView mode.
+// In inParentView, the displayed list is subfolderNames(parentViewDir), so
+// cursor 0 = ~/ (parentViewDir itself), cursor N = parentViewDir/subfolder[N-1].
+// Outside inParentView it falls back to snippetsDir/currentFolderName().
+func (m *model) selectedFolderAbs() string {
+	if m.inParentView {
+		if m.folderCursor == 0 {
+			// ~/ row — the parent folder itself
+			return m.parentViewDir
+		}
+		subs := m.subfolderNames(m.parentViewDir)
+		idx := m.folderCursor - 1
+		if idx < 0 || idx >= len(subs) {
+			return ""
+		}
+		return filepath.Join(m.parentViewDir, subs[idx])
+	}
+	// Normal mode
+	name := m.currentFolderName()
+	if name == "" {
+		return ""
+	}
+	return filepath.Join(m.snippetsDir, name)
+}
+
+// selectedFolderName returns just the base name of the currently selected folder,
+// correctly accounting for inParentView mode.
+func (m *model) selectedFolderName() string {
+	abs := m.selectedFolderAbs()
+	if abs == "" {
+		return ""
+	}
+	return filepath.Base(abs)
+}
+
 func (m *model) isFavorite(name string) bool {
 	abs := filepath.Join(m.snippetsDir, name)
 	for _, f := range m.favorites {
@@ -299,6 +342,19 @@ func (m *model) toggleFavorite(name string) {
 		}
 	}
 	m.favorites = append(m.favorites, abs)
+	m.saveFavorites()
+}
+
+// toggleFavoriteAbs adds or removes a favorite by absolute path.
+func (m *model) toggleFavoriteAbs(absPath string) {
+	for i, f := range m.favorites {
+		if f == absPath {
+			m.favorites = append(m.favorites[:i], m.favorites[i+1:]...)
+			m.saveFavorites()
+			return
+		}
+	}
+	m.favorites = append(m.favorites, absPath)
 	m.saveFavorites()
 }
 

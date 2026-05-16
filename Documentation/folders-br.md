@@ -162,4 +162,9 @@ Enter Select | -> Access subfolders | <- Back to parent | q Exit
 5. Deve ser possivel ativar essa busca clicando em "/" em qualquer folder ou subfolder no software.
 6. Quando eu selecionar o folder que desejo e clicar em "Enter" ele deve acessar o folder alterando o folder panel.
 
+### Retorno ao Home
+
+1. Quando trocamos o folder para outro externo, se clicarmos em "H" maiusculo ele voltar para o folder original.
+
+
 
