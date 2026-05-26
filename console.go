@@ -38,7 +38,7 @@ const helpLeft = ` GLOBAL
   H         Home dir
   /         Search folders`
 
-const helpRight = ` SNIPPETS
+const helpRight = ` FILES
   ↑↓/k/j   Navigate
   Enter     Open Neovim
   /         Search files

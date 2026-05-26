@@ -15,8 +15,8 @@ type langInfo struct {
 // Icons are the extension label shown to the left of the filename.
 // Colors follow the language's official/community color.
 var extMap = map[string]langInfo{
-	".go":         {icon: "go",     color: "#00add8"}, // Go cyan
-	".js":         {icon: "js",     color: "#f0db4f"}, // JS yellow
+	".go":         {icon: "󰟓",     color: "#00add8"}, // Go cyan
+	".js":         {icon: "",     color: "#f0db4f"}, // JS yellow
 	".ts":         {icon: "ts",     color: "#3178c6"}, // TS blue
 	".tsx":        {icon: "tsx",    color: "#61dafb"}, // React light blue
 	".jsx":        {icon: "jsx",    color: "#61dafb"},
@@ -43,8 +43,8 @@ var extMap = map[string]langInfo{
 	".h":          {icon: "h",      color: "#6e9bd1"},
 	".cpp":        {icon: "cpp",    color: "#f34b7d"}, // C++ pink
 	".cc":         {icon: "cpp",    color: "#f34b7d"},
-	".cs":         {icon: "cs",     color: "#9b4f96"}, // C# purple
-	".java":       {icon: "java",   color: "#b07219"}, // Java brown-orange
+	".cs":         {icon: "\ue7b2",     color: "#9b4f96"}, // C# purple
+	".java":       {icon: "f0b37",   color: "#b07219"}, // Java brown-orange
 	".kt":         {icon: "kt",     color: "#7f52ff"}, // Kotlin purple
 	".kts":        {icon: "kts",    color: "#7f52ff"},
 	".swift":      {icon: "swift",  color: "#f05138"}, // Swift orange-red
