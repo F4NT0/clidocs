@@ -114,6 +114,7 @@ type model struct {
 	previewSearchQuery  string
 	previewSearchHits   []int // line indices (0-based) of matches
 	previewSearchCursor int   // which hit is currently focused
+	previewZoom         bool  // zoom: show only preview panel
 
 	// folder favorites
 	favorites       []string // folder names marked as favorite

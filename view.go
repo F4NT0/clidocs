@@ -22,22 +22,28 @@ func (m model) View() string {
 func (m model) renderMain() string {
 	totalH := m.height - 3 // reserve for header + statusbar
 
-	// Panel widths
-	foldersW := 22
-	filesW := 32
-	previewW := m.width - foldersW - filesW - 6 // 6 for borders
-	if previewW < 20 {
-		previewW = 20
-	}
-
-	folders := m.renderFoldersPanel(foldersW, totalH)
-	files := m.renderFilesPanel(filesW, totalH)
-	preview := m.renderPreviewPanel(previewW, totalH)
-
-	body := lipgloss.JoinHorizontal(lipgloss.Top, folders, files, preview)
-
 	header := m.renderHeader()
 	statusbar := m.renderStatusBar()
+
+	var body string
+	if m.previewZoom {
+		previewW := m.width - 2
+		body = m.renderPreviewPanel(previewW, totalH)
+	} else {
+		// Panel widths
+		foldersW := 22
+		filesW := 32
+		previewW := m.width - foldersW - filesW - 6 // 6 for borders
+		if previewW < 20 {
+			previewW = 20
+		}
+
+		folders := m.renderFoldersPanel(foldersW, totalH)
+		files := m.renderFilesPanel(filesW, totalH)
+		preview := m.renderPreviewPanel(previewW, totalH)
+
+		body = lipgloss.JoinHorizontal(lipgloss.Top, folders, files, preview)
+	}
 
 	return lipgloss.NewStyle().
 		Background(colorBg).
@@ -438,12 +444,8 @@ func (m model) renderPreviewPanel(w, h int) string {
 		displayName = filepath.Base(m.previewFilePath)
 	}
 
-	// reserve: title(1) + sep(1) + path line when path is known(1) + optional search bar(1)
+	// reserve: title(1) + sep(1) + optional search bar(1)
 	headerLines := 2
-	showPath := m.previewFilePath != ""
-	if showPath {
-		headerLines = 3
-	}
 	if m.previewSearchActive {
 		headerLines++
 	}
@@ -471,11 +473,6 @@ func (m model) renderPreviewPanel(w, h int) string {
 	var contentLines []string
 	contentLines = append(contentLines, panelTitle)
 	contentLines = append(contentLines, mutedStyle.Render(strings.Repeat("─", w-4)))
-	if showPath {
-		pathStr := truncate(m.previewFilePath, w-6)
-		contentLines = append(contentLines,
-			" "+lipgloss.NewStyle().Foreground(colorOrange).Render(pathStr))
-	}
 
 	// search bar
 	if m.previewSearchActive {

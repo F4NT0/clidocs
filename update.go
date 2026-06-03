@@ -122,6 +122,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Exit zoom mode on Escape
+	if m.previewZoom && msg.String() == "esc" {
+		m.previewZoom = false
+		return m, nil
+	}
+
 	// Exit multi-delete mode on Escape
 	if m.multiDeleteMode && msg.String() == "esc" {
 		m.multiDeleteMode = false
@@ -477,6 +483,14 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "L":
 		m.previewLineNumbers = !m.previewLineNumbers
+
+	case "z", "Z":
+		if m.previewFilePath != "" || m.previewHighlight != "" {
+			m.previewZoom = !m.previewZoom
+			if m.previewZoom {
+				m.activePanel = panelPreview
+			}
+		}
 
 	case "/":
 		switch m.activePanel {
