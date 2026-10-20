@@ -58,6 +58,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loadPreview()
 		return m, nil
 
+	case aliveTickMsg:
+		if m.modal != modalAlive {
+			return m, nil
+		}
+		return m, tea.Batch(aliveSendKey(), aliveTick())
+
 	case clearStatusMsg:
 		m.statusMsg = ""
 		m.statusIsSuccess = false
@@ -1005,6 +1011,10 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.modalInput.SetValue("")
 				m.modalInput.Focus()
 				m.modalInput.Placeholder = "HH:MM (e.g. 08:00)"
+			case "alive":
+				m.modal = modalAlive
+				m.aliveInput = ""
+				return m, aliveTick()
 			case "whoami":
 				m.modal = modalWhoami
 			case "help":
@@ -1055,6 +1065,20 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, cmd
+
+	case modalAlive:
+		if msg.String() == "esc" {
+			m.modal = modalConsole
+			m.aliveInput = ""
+			return m, nil
+		}
+		if r := msg.String(); len(r) == 1 && r[0] >= 0x20 {
+			if len([]rune(m.aliveInput)) >= aliveMaxChars {
+				m.aliveInput = ""
+			}
+			m.aliveInput += r
+		}
+		return m, nil
 
 	case modalWhoami:
 		switch msg.String() {

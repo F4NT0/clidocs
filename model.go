@@ -52,6 +52,7 @@ const (
 	modalDirBrowser
 	modalMoveFileBrowse
 	modalNvimGuide
+	modalAlive
 	modalSubfolderSelect   // "Select the subfolder" modal (docs workflow)
 	modalMultiDeleteConfirm // multi-folder deletion confirmation
 	modalFolderSearch      // folder search modal
@@ -138,6 +139,7 @@ type model struct {
 	// console easter egg
 	consoleInput   string
 	consoleOutput  string // result text shown after a command
+	aliveInput     string
 
 	// time calculator
 	timeInput string
@@ -561,7 +563,7 @@ func (m *model) loadPreview() {
 		m.previewHighlight = ""
 		return
 	}
-	m.previewContent = string(data)
+	m.previewContent = expandTabs(normalizeLineEndings(string(data)), 4)
 	if isMarkdownFile(f.name) {
 		m.previewIsMarkdown = true
 		m.previewHighlight = renderMarkdown(m.previewContent, m.previewWidth)
@@ -595,7 +597,7 @@ func (m *model) loadPreviewFromPath(path string) {
 		m.previewHighlight = ""
 		return
 	}
-	m.previewContent = string(data)
+	m.previewContent = expandTabs(normalizeLineEndings(string(data)), 4)
 	if isMarkdownFile(name) {
 		m.previewIsMarkdown = true
 		m.previewHighlight = renderMarkdown(m.previewContent, m.previewWidth)

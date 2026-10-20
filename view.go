@@ -649,61 +649,63 @@ func (m model) renderWithModal() string {
 	var modal string
 	switch m.modal {
 	case modalNewFolder:
-		modal = m.renderNewFolderModal()
+		modal = RenderNewFolderModal(m.modalInput.View())
 	case modalNewFile:
-		modal = m.renderNewFileModal()
+		modal = RenderNewFileModal(m.modalInput.View(), m.modalInput2.View(), m.modalStep)
 	case modalError:
-		modal = m.renderErrorModal()
+		modal = RenderErrorModal(m.modalError, m.width)
 	case modalGitSetup:
-		modal = m.renderGitSetupModal()
+		modal = RenderGitSetupModal(m.modalInput.View(), m.modalInput2.View(), m.modalInput3.View(), m.modalStep)
 	case modalGitConfig:
-		modal = m.renderGitConfigModal()
+		modal = RenderGitConfigModal(m.modalInput.View(), m.modalInput2.View(), m.modalInput3.View(), m.modalStep)
 	case modalGitSuccess:
-		modal = m.renderGitSuccessModal()
+		modal = RenderGitSuccessModal(m.modalError)
 	case modalGitSyncing:
-		modal = m.renderGitSyncingModal()
+		modal = RenderGitSyncingModal()
 	case modalEditorReady:
-		modal = m.renderEditorReadyModal()
+		modal = RenderEditorReadyModal()
 	case modalCopyFile:
-		modal = m.renderCopyFileModal()
+		modal = RenderCopyFileModal(m.currentFolderName())
 	case modalDeleteConfirm:
-		modal = m.renderDeleteConfirmModal()
+		modal = RenderDeleteConfirmModal(m.currentFileName())
 	case modalMoveFile:
-		modal = m.renderMoveFileModal()
+		modal = RenderMoveFileModal(m.currentFileName(), m.moveDestinationsAll(), m.moveCursor)
 	case modalMoveFileBrowse:
-		modal = m.renderMoveFileBrowseModal()
+		modal = RenderDirBrowserModal(m.dirBrowser, m.width, m.height)
 	case modalDirInfo:
-		modal = m.renderDirInfoModal()
+		modal = RenderDirInfoModal(m.snippetsDir)
 	case modalDirBrowser:
-		modal = m.renderDirBrowserModal()
+		modal = RenderDirBrowserModal(m.dirBrowser, m.width, m.height)
 	case modalFavorites:
-		modal = m.renderFavoritesModal()
+		modal = RenderFavoritesModal(m.favorites, m.favCursor, func(absPath string) string { return m.favDisplayLabel(absPath) })
 	case modalRenameFolder:
-		modal = m.renderRenameFolderModal()
+		modal = RenderRenameFolderModal(m.folderOpTargetAbs, m.origSnippetsDir, m.snippetsDir, m.currentFolderName(), m.modalInput.View())
 	case modalDeleteFolder:
-		modal = m.renderDeleteFolderModal()
+		modal = RenderDeleteFolderModal(m.folderOpTargetAbs, m.origSnippetsDir, m.snippetsDir, m.currentFolderName())
 	case modalRenameFile:
-		modal = m.renderRenameFileModal()
+		modal = RenderRenameFileModal(m.currentFileName(), m.modalInput.View())
 	case modalSubfolderNav:
-		modal = m.renderSubfolderNavModal()
+		modal = RenderSubfolderNavModal(m.subNavStack, m.subNavEntries, m.subNavCursor)
 	case modalNewSubfolder:
-		modal = m.renderNewSubfolderModal()
+		modal = RenderNewSubfolderModal(m.newSubfolderParentAbs, m.origSnippetsDir, m.snippetsDir, m.currentFolderName(), m.modalInput.View())
 	case modalConsole:
-		modal = m.renderConsoleModal()
+		modal = RenderConsoleModal(m.consoleInput, m.consoleOutput, m.width)
 	case modalTimeCalc:
-		modal = m.renderTimeCalcModal()
+		modal = RenderTimeCalcModal(m.timeResult, m.modalInput.View())
 	case modalWhoami:
-		modal = m.renderWhoamiModal()
+		modal = RenderWhoamiModal()
 	case modalHelpConsole:
-		modal = m.renderHelpConsoleModal()
+		modal = RenderHelpConsoleModal()
+	case modalAlive:
+		modal = RenderAliveModal(m.aliveInput)
 	case modalNvimGuide:
-		modal = m.renderNvimGuideModal()
+		modal = RenderNvimGuideModal()
 	case modalSubfolderSelect:
-		modal = m.renderSubfolderSelectModal()
+		modal = RenderSubfolderSelectModal(m.subSelectEntries, m.subSelectCursor)
 	case modalMultiDeleteConfirm:
-		modal = m.renderMultiDeleteConfirmModal()
+		modal = RenderMultiDeleteConfirmModal(m.multiDeleteSelected)
 	case modalFolderSearch:
-		modal = m.renderFolderSearchModal()
+		modal = RenderFolderSearchModal(m.folderSearchModalQuery, m.folderSearchModalResults, m.folderSearchModalCursor)
 	}
 
 	return overlayModal(base, modal, m.width, m.height)

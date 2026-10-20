@@ -6,17 +6,17 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func (m model) renderErrorModal() string {
+func RenderErrorModal(modalError string, width int) string {
 	title := errorStyle.Render("  Error")
 	help := helpStyle.Render("Enter / Esc: close")
 
 	// wrap long messages so they don't overflow the terminal width
-	maxW := m.width - 12
+	maxW := width - 12
 	if maxW < 30 {
 		maxW = 30
 	}
 	var msgLines []string
-	for _, line := range strings.Split(m.modalError, "\n") {
+	for _, line := range strings.Split(modalError, "\n") {
 		for len(line) > maxW {
 			msgLines = append(msgLines, line[:maxW])
 			line = line[maxW:]
@@ -33,7 +33,7 @@ func (m model) renderErrorModal() string {
 	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
 }
 
-func (m model) renderEditorReadyModal() string {
+func RenderEditorReadyModal() string {
 	title := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7b72")).Bold(true).Render(" Neovim not found")
 	sep := mutedStyle.Render(strings.Repeat("─", 52))
 

@@ -6,23 +6,23 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func (m model) renderNewFileModal() string {
+func RenderNewFileModal(modalInputView, modalInput2View string, modalStep int) string {
 	title := modalTitleStyle.Render(" New File")
 
 	label1 := normalItemStyle.Render("File name:")
-	input1 := inputStyle.Width(42).Render(m.modalInput.View())
-	if m.modalStep == 0 {
+	input1 := inputStyle.Width(42).Render(modalInputView)
+	if modalStep == 0 {
 		label1 = accentStyle.Render("▶ File name:")
 	}
 
 	label2 := normalItemStyle.Render("Extension:")
-	input2 := inputStyle.Width(42).Render(m.modalInput2.View())
-	if m.modalStep == 1 {
+	input2 := inputStyle.Width(42).Render(modalInput2View)
+	if modalStep == 1 {
 		label2 = accentStyle.Render("▶ Extension:")
 	}
 
 	help := helpStyle.Render("Tab/Enter: next field  Esc: cancel")
-	if m.modalStep == 1 {
+	if modalStep == 1 {
 		help = helpStyle.Render("Enter: create file  Tab: back  Esc: cancel")
 	}
 
@@ -38,11 +38,10 @@ func (m model) renderNewFileModal() string {
 	)
 }
 
-func (m model) renderRenameFileModal() string {
-	name := m.currentFileName()
+func RenderRenameFileModal(currentFileName, modalInputView string) string {
 	title := modalTitleStyle.Render(" Rename Snippet")
-	current := mutedStyle.Render("Current: ") + lipgloss.NewStyle().Foreground(colorGreen).Render(name)
-	inputRendered := inputStyle.Width(42).Render(m.modalInput.View())
+	current := mutedStyle.Render("Current: ") + lipgloss.NewStyle().Foreground(colorGreen).Render(currentFileName)
+	inputRendered := inputStyle.Width(42).Render(modalInputView)
 	help := helpStyle.Render("Enter: confirm  Esc: cancel")
 	return modalStyle.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
@@ -56,10 +55,10 @@ func (m model) renderRenameFileModal() string {
 	)
 }
 
-func (m model) renderDeleteConfirmModal() string {
-	ext, extColor := getFileIcon(m.currentFileName())
+func RenderDeleteConfirmModal(currentFileName string) string {
+	ext, extColor := getFileIcon(currentFileName)
 	badge := lipgloss.NewStyle().Foreground(extColor).Render(ext)
-	name := lipgloss.NewStyle().Foreground(colorFg).Render(m.currentFileName())
+	name := lipgloss.NewStyle().Foreground(colorFg).Render(currentFileName)
 	fileStr := badge + "  " + name
 
 	title := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7b72")).Bold(true).Render(" Delete File")
@@ -74,9 +73,8 @@ func (m model) renderDeleteConfirmModal() string {
 	)
 }
 
-func (m model) renderCopyFileModal() string {
+func RenderCopyFileModal(folderName string) string {
 	title := modalTitleStyle.Render(" Import File")
-	folderName := m.currentFolderName()
 	dest := lipgloss.NewStyle().Foreground(colorFgSelected).Render(folderName)
 	info := lipgloss.NewStyle().Foreground(colorFg).Render("Opening file picker...")
 	sub := mutedStyle.Render("Select one or more files to copy into " + dest)
@@ -85,12 +83,10 @@ func (m model) renderCopyFileModal() string {
 	)
 }
 
-func (m model) renderMoveFileModal() string {
-	destinations := m.moveDestinationsAll()
-
-	ext, extColor := getFileIcon(m.currentFileName())
+func RenderMoveFileModal(currentFileName string, destinations []moveDestEntry, moveCursor int) string {
+	ext, extColor := getFileIcon(currentFileName)
 	badge := lipgloss.NewStyle().Foreground(extColor).Render(ext)
-	name := lipgloss.NewStyle().Foreground(colorFg).Render(m.currentFileName())
+	name := lipgloss.NewStyle().Foreground(colorFg).Render(currentFileName)
 	title := modalTitleStyle.Render(" Move File")
 	filesep := mutedStyle.Render(strings.Repeat("─", 48))
 
@@ -100,15 +96,15 @@ func (m model) renderMoveFileModal() string {
 	const maxVisible = 12
 	scrollStart := 0
 	totalItems := len(destinations) + 1 // +1 for Browse external
-	if m.moveCursor >= scrollStart+maxVisible {
-		scrollStart = m.moveCursor - maxVisible + 1
+	if moveCursor >= scrollStart+maxVisible {
+		scrollStart = moveCursor - maxVisible + 1
 	}
 
 	for i := scrollStart; i < totalItems && i < scrollStart+maxVisible; i++ {
 		folderIcon := mutedStyle.Render(" ")
 		if i == len(destinations) {
 			// Browse external entry
-			if i == m.moveCursor {
+			if i == moveCursor {
 				arrow := lipgloss.NewStyle().Foreground(colorOrange).Render("> ")
 				rows = append(rows, arrow+lipgloss.NewStyle().Foreground(colorAccentBlue).Render(" Browse external folder..."))
 			} else {
@@ -119,7 +115,7 @@ func (m model) renderMoveFileModal() string {
 		dest := destinations[i]
 		indent := strings.Repeat("  ", dest.depth)
 		label := truncate(dest.label, 44-len(indent))
-		if i == m.moveCursor {
+		if i == moveCursor {
 			arrow := lipgloss.NewStyle().Foreground(colorOrange).Render("> ")
 			nameStr := lipgloss.NewStyle().Foreground(colorAccentBlue).Render(indent+label)
 			rows = append(rows, arrow+folderIcon+nameStr)
@@ -137,18 +133,20 @@ func (m model) renderMoveFileModal() string {
 	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
 }
 
-func (m model) renderMoveFileBrowseModal() string {
-	return m.renderDirBrowserModal()
-}
-
-func (m model) renderDirInfoModal() string {
+func RenderDirInfoModal(snippetsDir string) string {
 	title := modalTitleStyle.Render(" Snippets Directory")
 	sep := mutedStyle.Render(strings.Repeat("─", 44))
-	dirStr := lipgloss.NewStyle().Foreground(colorAccentBlue).Render(m.snippetsDir)
+	dirStr := lipgloss.NewStyle().Foreground(colorAccentBlue).Render(snippetsDir)
 	help := helpStyle.Render("Enter: open in Explorer   s: change directory   Esc: close")
 	return modalStyle.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			title, "", dirStr, sep, help,
 		),
 	)
+}
+
+// Helper types and functions
+type moveDestination struct {
+	label string
+	depth int
 }

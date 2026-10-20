@@ -88,7 +88,7 @@
 - **Preview panel full-width** — markdown and code previews now use the full available panel width at any terminal size
 - **Markdown keyword colorization** — `TODO` (blue), `DOING`/`WORKING` (yellow), `DONE`/`FINISH` (green +  icon), `FAIL`/`NOT` (red +  icon) are automatically colored when rendered
 - **Markdown icon shortcodes** — `:check:` (), `:x:` (), `:work:` () are replaced with colored Nerd Font icons at render time
-- **Dark theme** — unified `#0d1117` background, GitHub-inspired palette
+- **Dark theme** — unified `#0D0D0D` background, GitHub-inspired palette
 
 </details>
 
@@ -851,21 +851,25 @@ Syntax highlighting uses **Chroma** with the **GitHub Dark** theme. Each file sh
 
 ## Project Structure
 
-| File | Description |
-|---|---|
-| `main.go` | Entry point — splash or direct launch, creates snippets dir, starts Bubbletea |
-| `splash.go` | ASCII art splash screen shown when no CLI argument is provided |
-| `console.go` | `whoamiText` and `helpConsoleText` constants — edit here to customize |
-| `dirs.go` | Resolves `%USERPROFILE%\clidocs_snippets` default path |
-| `model.go` | App state struct, folder/file/subfolder loading, helpers |
-| `update.go` | All keyboard handling, modal state machine, editor/sync launch |
-| `view.go` | Three-panel layout, modal overlays, status bar renderer |
-| `styles.go` | All Lipgloss styles — GitHub Dark color palette |
-| `icons.go` | Extension → label + color mapping; Chroma lexer lookup |
-| `highlight.go` | Chroma syntax highlighting engine |
-| `gitconfig.go` | Load/save `.clidocs_git.json` configuration |
-| `gitsync.go` | Git CLI operations (init, pull, add, commit, push) |
-| `filecopy.go` | Modern Windows folder/file picker via PowerShell COM + file copy logic |
+The project is currently in transition to Clean Architecture. Due to Bubble Tea framework constraints requiring Update/View methods in the same package as Model, the core application files remain in the root while auxiliary files have been reorganized:
+
+```
+clidocs/
+├── cmd/
+│   └── install/                 # TUI installer scripts
+├── *.go                          # Core application files (main.go, model.go, view.go, update.go, gitconfig.go, gitsync.go, etc.)
+├── console_modals.go            # Console-related modals (renamed from internal/ui/modals/console.go)
+├── file_modals.go               # File operation modals
+├── folder_modals.go             # Folder management modals
+├── git_modals.go                # Git configuration modals
+├── other_modals.go              # Error and editor modals
+└── README.md
+```
+
+**Note:** A reorganização para Clean Architecture foi iniciada mas não pôde ser completada devido às dependências circulares do Bubble Tea framework. Os arquivos principais (model.go, view.go, update.go) precisam permanecer no mesmo package. Futuras tentativas de refatoração podem considerar:
+1. Migrar para um framework TUI diferente que permita melhor separação de pacotes
+2. Reescrever a aplicação usando uma arquitetura que não dependa de métodos Update/View no mesmo package do Model
+3. Aceitar a estrutura atual como um compromisso razoável para aplicações Bubble Tea
 
 ---
 

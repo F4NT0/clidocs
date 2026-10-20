@@ -3,14 +3,14 @@ package main
 import "github.com/charmbracelet/lipgloss"
 
 var (
-	colorBg          = lipgloss.Color("#0d1117")
-	colorBgPanel     = lipgloss.Color("#0d1117")
-	colorBgSelected  = lipgloss.Color("#0d1117")
-	colorBgActive    = lipgloss.Color("#e6edf3")
+	colorBg          = lipgloss.Color("#0D0D0D")
+	colorBgPanel     = lipgloss.Color("#0D0D0D")
+	colorBgSelected  = lipgloss.Color("#0D0D0D")
+	colorBgActive    = lipgloss.Color("#6e7681")
 	colorFg          = lipgloss.Color("#c9d1d9")
 	colorFgMuted     = lipgloss.Color("#6e7681")
 	colorFgSelected  = lipgloss.Color("#adbac7")
-	colorAccent      = lipgloss.Color("#e6edf3")
+	colorAccent      = lipgloss.Color("#484f58")
 	colorAccentBlue  = lipgloss.Color("#58a6ff")
 	colorBorder      = lipgloss.Color("#30363d")
 	colorArrow       = lipgloss.Color("#e6edf3")
@@ -23,13 +23,13 @@ var (
 
 	panelStyle = lipgloss.NewStyle().
 			Background(colorBgPanel).
-			Border(lipgloss.NormalBorder()).
+			Border(lipgloss.RoundedBorder()).
 			BorderForeground(colorBorder)
 
 	activePanelStyle = lipgloss.NewStyle().
 				Background(colorBgPanel).
-				Border(lipgloss.NormalBorder()).
-				BorderForeground(colorAccent)
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(colorAccentBlue)
 
 	headerActiveStyle = lipgloss.NewStyle().
 				Background(colorAccent).

@@ -17,7 +17,7 @@ import (
 // ── colours ───────────────────────────────────────────────────────────────────
 
 var (
-	cBg     = lipgloss.Color("#0d1117")
+	cBg     = lipgloss.Color("#0D0D0D")
 	cFg     = lipgloss.Color("#c9d1d9")
 	cMuted  = lipgloss.Color("#6e7681")
 	cGreen  = lipgloss.Color("#3fb950")
@@ -660,14 +660,14 @@ func renderCheck(c checkResult) string {
 	switch c.status {
 	case checkOK:
 		badge = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#0d1117")).
+			Foreground(lipgloss.Color("#0D0D0D")).
 			Background(cGreen).
 			Bold(true).
 			Padding(0, 1).
 			Render("OK")
 	case checkWarn:
 		badge = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#0d1117")).
+			Foreground(lipgloss.Color("#0D0D0D")).
 			Background(cYellow).
 			Bold(true).
 			Padding(0, 1).

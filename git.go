@@ -4,24 +4,24 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func (m model) renderGitSetupModal() string {
-	return m.renderGitFormModal(" Connect to GitHub", false)
+func RenderGitSetupModal(modalInputView, modalInput2View, modalInput3View string, modalStep int) string {
+	return renderGitFormModal(" Connect to GitHub", false, modalInputView, modalInput2View, modalInput3View, modalStep)
 }
 
-func (m model) renderGitConfigModal() string {
-	return m.renderGitFormModal(" GitHub Configuration", true)
+func RenderGitConfigModal(modalInputView, modalInput2View, modalInput3View string, modalStep int) string {
+	return renderGitFormModal(" GitHub Configuration", true, modalInputView, modalInput2View, modalInput3View, modalStep)
 }
 
-func (m model) renderGitFormModal(title string, isEdit bool) string {
+func renderGitFormModal(title string, isEdit bool, modalInputView, modalInput2View, modalInput3View string, modalStep int) string {
 	titleStr := modalTitleStyle.Render(title)
 
 	fields := []struct {
 		label string
 		input string
 	}{
-		{"Repository URL:", m.modalInput.View()},
-		{"Username:", m.modalInput2.View()},
-		{"Email:", m.modalInput3.View()},
+		{"Repository URL:", modalInputView},
+		{"Username:", modalInput2View},
+		{"Email:", modalInput3View},
 	}
 
 	var rows []string
@@ -29,7 +29,7 @@ func (m model) renderGitFormModal(title string, isEdit bool) string {
 	rows = append(rows, "")
 	for i, f := range fields {
 		label := mutedStyle.Render(f.label)
-		if i == m.modalStep {
+		if i == modalStep {
 			label = accentStyle.Render("▶ "+f.label)
 		}
 		rows = append(rows, label)
@@ -43,7 +43,7 @@ func (m model) renderGitFormModal(title string, isEdit bool) string {
 	} else {
 		action = "Enter to connect & sync"
 	}
-	if m.modalStep < 2 {
+	if modalStep < 2 {
 		action = "Enter/Tab: next field"
 	}
 	rows = append(rows, helpStyle.Render(action+"  Shift+Tab: prev  Esc: cancel"))
@@ -51,16 +51,16 @@ func (m model) renderGitFormModal(title string, isEdit bool) string {
 	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
 }
 
-func (m model) renderGitSuccessModal() string {
+func RenderGitSuccessModal(modalError string) string {
 	title := lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render(" Sync Complete")
-	msg := lipgloss.NewStyle().Foreground(colorFg).Render(m.modalError)
+	msg := lipgloss.NewStyle().Foreground(colorFg).Render(modalError)
 	help := helpStyle.Render("Enter / Esc: close")
 	return modalStyle.Render(
 		lipgloss.JoinVertical(lipgloss.Left, title, "", msg, "", help),
 	)
 }
 
-func (m model) renderGitSyncingModal() string {
+func RenderGitSyncingModal() string {
 	title := mutedStyle.Render(" Syncing to GitHub...")
 	spinner := accentStyle.Render("Please wait")
 	return modalStyle.Render(
