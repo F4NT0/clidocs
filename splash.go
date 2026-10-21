@@ -59,9 +59,9 @@ func (s splashModel) View() string {
 		return ""
 	}
 
-	bg := colorBg
+	bg := lipgloss.Color("#0D0D0D")
 	green := lipgloss.Color("#00ff88")
-	muted := lipgloss.NewStyle().Foreground(colorFgMuted)
+	muted := lipgloss.NewStyle().Foreground(lipgloss.Color("#6e7681"))
 
 	ascii := `
  ██████╗██╗     ██╗██████╗  ██████╗  ██████╗███████╗
@@ -76,7 +76,7 @@ func (s splashModel) View() string {
 		Bold(true)
 
 	subtitle := lipgloss.NewStyle().
-		Foreground(colorAccentBlue).
+		Foreground(lipgloss.Color("#58a6ff")).
 		Render("Terminal-native snippet manager")
 
 	tagline := muted.Render("Organize, preview, and edit code snippets in a three-panel TUI")
@@ -86,17 +86,17 @@ func (s splashModel) View() string {
 	option0 := "  Open default snippets directory"
 	option1 := "  Browse for a directory..."
 
-	opt0Style := lipgloss.NewStyle().Foreground(colorFg)
-	opt1Style := lipgloss.NewStyle().Foreground(colorFg)
+	opt0Style := lipgloss.NewStyle().Foreground(lipgloss.Color("#c9d1d9"))
+	opt1Style := lipgloss.NewStyle().Foreground(lipgloss.Color("#c9d1d9"))
 	cursor0 := "  "
 	cursor1 := "  "
 
 	if s.choice == 0 {
 		opt0Style = lipgloss.NewStyle().Foreground(green).Bold(true)
-		cursor0 = lipgloss.NewStyle().Foreground(colorOrange).Render("> ")
+		cursor0 = lipgloss.NewStyle().Foreground(lipgloss.Color("#e8912d")).Render("> ")
 	} else {
 		opt1Style = lipgloss.NewStyle().Foreground(green).Bold(true)
-		cursor1 = lipgloss.NewStyle().Foreground(colorOrange).Render("> ")
+		cursor1 = lipgloss.NewStyle().Foreground(lipgloss.Color("#e8912d")).Render("> ")
 	}
 
 	boxContent := lipgloss.JoinVertical(lipgloss.Center,

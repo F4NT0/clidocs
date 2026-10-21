@@ -8,6 +8,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+const Version = "2.0.0"
+
 func main() {
 	if len(os.Args) >= 2 {
 		// Directory argument provided — skip splash and go directly to app

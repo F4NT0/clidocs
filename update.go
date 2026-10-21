@@ -58,6 +58,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loadPreview()
 		return m, nil
 
+	case aliveTickMsg:
+		if m.modal != modalAlive {
+			return m, nil
+		}
+		return m, tea.Batch(aliveSendKey(), aliveTick())
+
 	case clearStatusMsg:
 		m.statusMsg = ""
 		m.statusIsSuccess = false
@@ -122,6 +128,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Exit zoom mode on Escape
+	if m.previewZoom && msg.String() == "esc" {
+		m.previewZoom = false
+		return m, nil
+	}
+
+	// Exit multi-delete mode on Escape
+	if m.multiDeleteMode && msg.String() == "esc" {
+		m.multiDeleteMode = false
+		m.multiDeleteSelected = nil
+		m.statusMsg = "Multi-delete cancelled"
+		return m, clearStatusAfter(2 * time.Second)
+	}
+
 	switch msg.String() {
 	case "ctrl+c", "q":
 		return m, tea.Quit
@@ -197,6 +217,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.fileScroll = 0
 				m.loadFiles()
 				m.loadPreview()
+			} else if m.hasRootFiles && m.folderCursor == 0 {
+				// already at ~/ root — nothing to do
 			}
 		case panelFiles:
 			if m.fileCursor > 0 {
@@ -224,13 +246,19 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					m.loadFiles()
 					m.loadPreview()
 				}
-			} else if m.folderCursor < len(m.folders)-1 {
-				m.folderCursor++
-				m.folderScroll = clampScroll(m.folderCursor, m.folderScroll, 10)
-				m.fileCursor = 0
-				m.fileScroll = 0
-				m.loadFiles()
-				m.loadPreview()
+			} else {
+				totalFolderItems := len(m.folders)
+				if m.hasRootFiles {
+					totalFolderItems++
+				}
+				if m.folderCursor < totalFolderItems-1 {
+					m.folderCursor++
+					m.folderScroll = clampScroll(m.folderCursor, m.folderScroll, 10)
+					m.fileCursor = 0
+					m.fileScroll = 0
+					m.loadFiles()
+					m.loadPreview()
+				}
 			}
 		case panelFiles:
 			if m.fileCursor < len(m.files)-1 {
@@ -247,7 +275,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case panelFolders:
 			if m.inParentView {
 				// In parent-view: Enter on ~/ does nothing (already showing its files)
-				// Enter on a subfolder: check if it itself has subfolders
+				// Enter on a subfolder: check if it itself has subfolders → open subSelect modal
 				if m.folderCursor == 0 {
 					// ~/ row — no-op, files already showing
 					break
@@ -260,17 +288,15 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				subDir := filepath.Join(m.parentViewDir, subs[idx])
 				subSubs := m.subfolderNames(subDir)
 				if len(subSubs) > 0 {
-					// subfolder also has children — enter parent-view for it
-					m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
-					m.snippetsDir = m.parentViewDir
-					m.parentViewDir = subDir
-					m.folderCursor = 0
-					m.fileCursor = 0
-					m.loadFiles()
-					m.loadPreview()
-					m.statusMsg = "Inside: " + filepath.Base(subDir) + "  (← to go back)"
-					m.statusIsSuccess = true
-					return m, clearStatusAfter(4 * time.Second)
+					// subfolder also has children — open subfolder select modal
+					// subSelectStack is relative to m.snippetsDir
+					rel, _ := filepath.Rel(m.snippetsDir, subDir)
+					parts := strings.Split(filepath.ToSlash(rel), "/")
+					m.subSelectStack = parts
+					m.subSelectCursor = 0
+					m.loadSubSelectEntries()
+					m.modal = modalSubfolderSelect
+					return m, nil
 				}
 				// plain subfolder — navigate into it directly (no subfolders)
 				m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
@@ -291,18 +317,12 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					folderAbs := filepath.Join(m.snippetsDir, folderName)
 					subs := m.subfolderNames(folderAbs)
 					if len(subs) > 0 {
-						// folder has subfolders — enter parent-view mode
-						m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
-						m.snippetsDir = folderAbs
-						m.inParentView = true
-						m.parentViewDir = folderAbs
-						m.folderCursor = 0
-						m.fileCursor = 0
-						m.loadFiles()
-						m.loadPreview()
-						m.statusMsg = "Inside: " + folderName + "  (← to go back)"
-						m.statusIsSuccess = true
-						return m, clearStatusAfter(4 * time.Second)
+						// folder has subfolders — open subfolder select modal
+						m.subSelectStack = []string{folderName}
+						m.subSelectCursor = 0
+						m.loadSubSelectEntries()
+						m.modal = modalSubfolderSelect
+						return m, nil
 					}
 					// plain folder — navigate directly
 					m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
@@ -335,36 +355,49 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "N":
 		// create a new subfolder inside the currently selected folder
-		if m.activePanel == panelFolders && !m.inParentView && len(m.folders) > 0 {
+		if m.activePanel == panelFolders {
+			parentAbs := m.selectedFolderAbs()
+			if parentAbs == "" {
+				// No folder selected — fall back to snippetsDir
+				parentAbs = m.snippetsDir
+			}
+			m.newSubfolderParentAbs = parentAbs
 			m.openModal(modalNewSubfolder)
 		}
 
-	case "f":
-		// toggle favorite on the currently selected folder
-		if m.activePanel == panelFolders {
-			name := m.currentFolderName()
-			if name != "" {
-				m.toggleFavorite(name)
-				if m.inFavSection && !m.isFavorite(name) {
-					// cursor was on a just-removed favorite — reset to main section
-					m.inFavSection = false
-					if m.favCursor >= len(m.favorites) {
-						m.favCursor = max(0, len(m.favorites)-1)
-					}
-				}
-				m.statusMsg = "★ " + name
-				if m.isFavorite(name) {
-					m.statusMsg += " added to favorites"
-				} else {
-					m.statusMsg += " removed from favorites"
-				}
-				m.statusIsSuccess = true
-				return m, clearStatusAfter(2 * time.Second)
+	case "d":
+		switch m.activePanel {
+		case panelFolders:
+			// favorite/unfavorite selected folder — use selectedFolderAbs() so
+			// inParentView (including the ~/ row) is handled correctly.
+			if m.selectedFolderAbs() != "" {
+				m.toggleFavoriteFolder()
+			}
+		case panelFiles:
+			// delete selected file
+			if len(m.files) > 0 {
+				m.modal = modalDeleteConfirm
 			}
 		}
 
+	case "D":
+		switch m.activePanel {
+		case panelFolders:
+			// open favorites modal
+			if len(m.favorites) > 0 {
+				m.favCursor = 0
+				m.modal = modalFavorites
+			}
+		}
+
+	case "f":
+		// legacy: toggle favorite (kept for compatibility)
+		if m.activePanel == panelFolders {
+			m.toggleFavoriteFolder()
+		}
+
 	case "F":
-		// open favorites modal
+		// open favorites modal (legacy binding)
 		if m.activePanel == panelFolders && len(m.favorites) > 0 {
 			m.favCursor = 0
 			m.modal = modalFavorites
@@ -378,6 +411,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.fileCursor = 0
 			m.inFavSection = false
 			m.favCursor = 0
+			m.folderDirStack = nil
+			m.inParentView = false
+			m.parentViewDir = ""
 			m.loadFolders()
 			m.loadFavorites()
 			m.loadFiles()
@@ -401,11 +437,6 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "G":
 		m.openGitConfigModal()
-
-	case "d":
-		if m.activePanel == panelFiles && len(m.files) > 0 {
-			m.modal = modalDeleteConfirm
-		}
 
 	case "m":
 		// move current file to another folder
@@ -442,24 +473,39 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "o":
-		if m.activePanel == panelPreview && m.previewFilePath != "" {
-			// open file location in Explorer
-			dir := filepath.Dir(m.previewFilePath)
-			_ = exec.Command("explorer.exe", filepath.FromSlash(dir)).Start()
-		} else {
-			// show current snippets dir info (original behaviour on other panels)
+		switch m.activePanel {
+		case panelPreview:
+			if m.previewFilePath != "" {
+				// open file location in Explorer
+				dir := filepath.Dir(m.previewFilePath)
+				_ = exec.Command("explorer.exe", filepath.FromSlash(dir)).Start()
+			}
+		case panelFolders:
+			// show current snippets dir info / location switch modal
+			m.modal = modalDirInfo
+		default:
 			m.modal = modalDirInfo
 		}
 
 	case "L":
 		m.previewLineNumbers = !m.previewLineNumbers
 
+	case "z", "Z":
+		if m.previewFilePath != "" || m.previewHighlight != "" {
+			m.previewZoom = !m.previewZoom
+			if m.previewZoom {
+				m.activePanel = panelPreview
+			}
+		}
+
 	case "/":
 		switch m.activePanel {
 		case panelFolders:
-			m.folderSearchActive = true
-			m.folderSearchQuery = ""
-			m.folderCursor = 0
+			// Open folder search modal
+			m.folderSearchModalQuery = ""
+			m.folderSearchModalResults = m.searchFoldersRecursive("")
+			m.folderSearchModalCursor = 0
+			m.modal = modalFolderSearch
 		case panelFiles:
 			m.searchActive = true
 			m.searchQuery = ""
@@ -474,29 +520,87 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case "R":
-		if m.activePanel == panelFolders && !m.inParentView && len(m.folders) > 0 {
-			m.modal = modalRenameFolder
-			m.modalInput.SetValue(m.currentFolderName())
-			m.modalInput.Focus()
-			m.modalInput.Placeholder = "New folder name..."
-		}
-
-	case "D":
-		if m.activePanel == panelFolders && !m.inParentView && len(m.folders) > 0 {
-			m.modal = modalDeleteFolder
-		}
-
 	case "r":
-		if m.activePanel == panelFiles && len(m.files) > 0 {
-			m.modal = modalRenameFile
-			m.modalInput.SetValue(m.currentFileName())
-			m.modalInput.Focus()
-			m.modalInput.Placeholder = "New file name..."
-		} else {
-			m.loadFiles()
-			m.loadPreview()
-			m.statusMsg = ""
+		switch m.activePanel {
+		case panelFolders:
+			// rename selected folder — use selectedFolderAbs so inParentView works correctly
+			absTarget := m.selectedFolderAbs()
+			if absTarget != "" {
+				m.folderOpTargetAbs = absTarget
+				m.modal = modalRenameFolder
+				m.modalInput.SetValue(filepath.Base(absTarget))
+				m.modalInput.Focus()
+				m.modalInput.Placeholder = "New folder name..."
+			}
+		case panelFiles:
+			if len(m.files) > 0 {
+				m.modal = modalRenameFile
+				m.modalInput.SetValue(m.currentFileName())
+				m.modalInput.Focus()
+				m.modalInput.Placeholder = "New file name..."
+			} else {
+				m.loadFiles()
+				m.loadPreview()
+				m.statusMsg = ""
+			}
+		}
+
+	case "R":
+		// legacy rename folder binding (kept for compatibility)
+		if m.activePanel == panelFolders {
+			absTarget := m.selectedFolderAbs()
+			if absTarget != "" {
+				m.folderOpTargetAbs = absTarget
+				m.modal = modalRenameFolder
+				m.modalInput.SetValue(filepath.Base(absTarget))
+				m.modalInput.Focus()
+				m.modalInput.Placeholder = "New folder name..."
+			}
+		}
+
+	case "x":
+		// delete selected folder with confirmation — use selectedFolderAbs
+		if m.activePanel == panelFolders {
+			absTarget := m.selectedFolderAbs()
+			if absTarget != "" {
+				m.folderOpTargetAbs = absTarget
+				m.modal = modalDeleteFolder
+			}
+		}
+
+	case "X":
+		// multi-folder delete mode
+		if m.activePanel == panelFolders && !m.inParentView && len(m.folders) > 0 {
+			if m.multiDeleteMode {
+				// already in mode — open confirmation if any selected
+				if len(m.multiDeleteSelected) > 0 {
+					m.modal = modalMultiDeleteConfirm
+				}
+			} else {
+				m.multiDeleteMode = true
+				m.multiDeleteSelected = make(map[int]bool)
+				m.statusMsg = "Multi-delete: Space=select  Enter=confirm  Esc=cancel"
+				return m, clearStatusAfter(4 * time.Second)
+			}
+		}
+
+	case " ":
+		// select/deselect folder in multi-delete mode
+		if m.activePanel == panelFolders && m.multiDeleteMode && !m.inParentView {
+			idx := m.folderCursor
+			if m.hasRootFiles {
+				if idx == 0 {
+					break // can't delete ~/ root
+				}
+				idx-- // map to folders slice
+			}
+			if idx >= 0 && idx < len(m.folders) {
+				if m.multiDeleteSelected[idx] {
+					delete(m.multiDeleteSelected, idx)
+				} else {
+					m.multiDeleteSelected[idx] = true
+				}
+			}
 		}
 
 	case ":":
@@ -506,10 +610,28 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.modal = modalConsole
 
 	case "?":
-		m.statusMsg = "Tab/→←: panel | ↑↓: nav | Enter: edit | n: new | r: reload | g: sync | G: git config | q: quit"
+		m.statusMsg = "Tab/→←: panel | ↑↓: nav | Enter: open | n: new folder | N: new subfolder | r: rename | x: delete | d: fav | D: favs | /: search | q: quit"
 	}
 
 	return m, nil
+}
+
+// toggleFavoriteFolder toggles favorite for the currently selected folder and shows status.
+// It uses selectedFolderAbs() so it works correctly both in normal mode and inParentView mode.
+func (m *model) toggleFavoriteFolder() {
+	absPath := m.selectedFolderAbs()
+	if absPath == "" {
+		return
+	}
+	name := filepath.Base(absPath)
+	m.toggleFavoriteAbs(absPath)
+	m.statusMsg = "★ " + name
+	if m.isFavoriteAbs(absPath) {
+		m.statusMsg += " added to favorites"
+	} else {
+		m.statusMsg += " removed from favorites"
+	}
+	m.statusIsSuccess = true
 }
 
 func doCopyFile(destDir string) tea.Cmd {
@@ -847,8 +969,11 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if name == "" {
 				return m, nil
 			}
-			parentFolder := m.currentFolderName()
-			parentDir := filepath.Join(m.snippetsDir, parentFolder)
+			// Use the abs path set when the modal was opened, not currentFolderName()
+			parentDir := m.newSubfolderParentAbs
+			if parentDir == "" {
+				parentDir = filepath.Join(m.snippetsDir, m.currentFolderName())
+			}
 			dir := filepath.Join(parentDir, name)
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				m.modal = modalError
@@ -856,7 +981,8 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			m.modal = modalNone
-			m.statusMsg = "Subfolder '" + name + "' created inside " + parentFolder
+			parentName := filepath.Base(parentDir)
+			m.statusMsg = "Subfolder '" + name + "' created inside " + parentName
 			m.statusIsSuccess = true
 			return m, clearStatusAfter(3 * time.Second)
 		default:
@@ -885,6 +1011,10 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.modalInput.SetValue("")
 				m.modalInput.Focus()
 				m.modalInput.Placeholder = "HH:MM (e.g. 08:00)"
+			case "alive":
+				m.modal = modalAlive
+				m.aliveInput = ""
+				return m, aliveTick()
 			case "whoami":
 				m.modal = modalWhoami
 			case "help":
@@ -935,6 +1065,20 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, cmd
+
+	case modalAlive:
+		if msg.String() == "esc" {
+			m.modal = modalConsole
+			m.aliveInput = ""
+			return m, nil
+		}
+		if r := msg.String(); len(r) == 1 && r[0] >= 0x20 {
+			if len([]rune(m.aliveInput)) >= aliveMaxChars {
+				m.aliveInput = ""
+			}
+			m.aliveInput += r
+		}
+		return m, nil
 
 	case modalWhoami:
 		switch msg.String() {
@@ -1070,36 +1214,61 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.modal = modalNone
 		case "enter":
 			newName := strings.TrimSpace(m.modalInput.Value())
-			oldName := m.currentFolderName()
+			// Use folderOpTargetAbs set when modal was opened (accounts for inParentView)
+			oldPath := m.folderOpTargetAbs
+			if oldPath == "" {
+				oldPath = filepath.Join(m.snippetsDir, m.currentFolderName())
+			}
+			oldName := filepath.Base(oldPath)
 			if newName == "" || newName == oldName {
 				m.modal = modalNone
 				return m, nil
 			}
-			oldPath := filepath.Join(m.snippetsDir, oldName)
-			newPath := filepath.Join(m.snippetsDir, newName)
+			// Validation: name cannot contain spaces (use _ or - instead)
+			if strings.Contains(newName, " ") {
+				m.modal = modalError
+				m.modalError = "Folder name cannot contain spaces.\nUse underscore (user_name) or hyphen (user-name) instead."
+				return m, nil
+			}
+			newPath := filepath.Join(filepath.Dir(oldPath), newName)
 			if err := os.Rename(oldPath, newPath); err != nil {
 				m.modal = modalError
 				m.modalError = fmt.Sprintf("Could not rename folder: %v", err)
 				return m, nil
 			}
-			// update favorites if needed (stored as abs paths)
+			// update favorites if needed (stored as abs paths) — also update subpaths
 			for i, f := range m.favorites {
 				if f == oldPath {
 					m.favorites[i] = newPath
 					m.saveFavorites()
-					break
+				} else if strings.HasPrefix(f, oldPath+string(filepath.Separator)) {
+					m.favorites[i] = newPath + f[len(oldPath):]
+					m.saveFavorites()
 				}
 			}
+			m.folderOpTargetAbs = ""
 			m.modal = modalNone
-			m.loadFolders()
-			for i, f := range m.folders {
-				if f == newName {
-					m.folderCursor = i
-					break
+			// Reload the correct level
+			if m.inParentView {
+				// If the renamed folder WAS parentViewDir, update it to the new path.
+				if m.parentViewDir == oldPath {
+					m.parentViewDir = newPath
 				}
+				// In parent-view, the panel shows subfolderNames(parentViewDir) — no reload needed,
+				// just refresh the file/preview since the subfolder name changed
+				m.loadFiles()
+				m.loadPreview()
+			} else {
+				m.loadFolders()
+				for i, f := range m.folders {
+					if f == newName {
+						m.folderCursor = i
+						break
+					}
+				}
+				m.loadFiles()
+				m.loadPreview()
 			}
-			m.loadFiles()
-			m.loadPreview()
 			m.statusMsg = "Folder renamed to " + newName
 			m.statusIsSuccess = true
 			return m, clearStatusAfter(3 * time.Second)
@@ -1113,33 +1282,56 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modalDeleteFolder:
 		switch msg.String() {
 		case "enter", "y":
-			name := m.currentFolderName()
-			if name == "" {
-				m.modal = modalNone
-				return m, nil
+			// Use folderOpTargetAbs set when modal was opened (accounts for inParentView)
+			path := m.folderOpTargetAbs
+			if path == "" {
+				name := m.currentFolderName()
+				if name == "" {
+					m.modal = modalNone
+					return m, nil
+				}
+				path = filepath.Join(m.snippetsDir, name)
 			}
-			path := filepath.Join(m.snippetsDir, name)
+			name := filepath.Base(path)
 			if err := os.RemoveAll(path); err != nil {
 				m.modal = modalError
 				m.modalError = fmt.Sprintf("Could not delete folder: %v", err)
 				return m, nil
 			}
-			// remove from favorites (stored as abs paths)
-			for i, f := range m.favorites {
-				if f == path {
-					m.favorites = append(m.favorites[:i], m.favorites[i+1:]...)
-					m.saveFavorites()
-					break
+			// remove from favorites — also remove sub-paths
+			newFavs := m.favorites[:0]
+			changed := false
+			for _, f := range m.favorites {
+				if f == path || strings.HasPrefix(f, path+string(filepath.Separator)) {
+					changed = true
+				} else {
+					newFavs = append(newFavs, f)
 				}
 			}
+			if changed {
+				m.favorites = newFavs
+				m.saveFavorites()
+			}
+			m.folderOpTargetAbs = ""
 			m.modal = modalNone
-			m.loadFolders()
-			m.loadFiles()
-			m.loadPreview()
+			// If in parent-view, we deleted a subfolder — refresh via subfolderNames
+			if m.inParentView {
+				// Reset cursor to ~/ and refresh
+				m.folderCursor = 0
+				m.fileCursor = 0
+				m.loadFiles()
+				m.loadPreview()
+			} else {
+				m.folderCursor = 0
+				m.loadFolders()
+				m.loadFiles()
+				m.loadPreview()
+			}
 			m.statusMsg = "Folder \"" + name + "\" deleted."
 			m.statusIsSuccess = true
 			return m, clearStatusAfter(3 * time.Second)
 		case "esc", "n", "q":
+			m.folderOpTargetAbs = ""
 			m.modal = modalNone
 		}
 		return m, nil
@@ -1254,27 +1446,19 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if m.favCursor < len(m.favorites) {
 				absPath := m.favorites[m.favCursor]
-				// The favorite is an abs path to a folder.
-				// Navigate to its parent dir, then select the folder by name.
-				parentDir := filepath.Dir(absPath)
-				folderName := filepath.Base(absPath)
-				// Push dir stack and switch to parent
-				if parentDir != m.snippetsDir {
-					m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
-					m.snippetsDir = parentDir
-					m.loadFolders()
-				}
-				// find folder index
-				for i, f := range m.folders {
-					if f == folderName {
-						m.folderCursor = i
-						m.folderScroll = clampScroll(i, m.folderScroll, 10)
-						break
-					}
-				}
+				// Navigate INTO the favorited folder:
+				// Set snippetsDir = absPath so the folder panel shows ~/ + its subfolders.
+				// This matches the spec: "folder panel shows ~/ as the selected folder with a star".
+				m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
+				m.snippetsDir = absPath
+				m.inParentView = false
+				m.parentViewDir = ""
+				m.folderCursor = 0
+				m.folderScroll = 0
 				m.inFavSection = false
 				m.fileCursor = 0
 				m.fileScroll = 0
+				m.loadFolders()
 				m.loadFiles()
 				m.loadPreview()
 			}
@@ -1296,6 +1480,199 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				if len(m.favorites) == 0 {
 					m.modal = modalNone
 				}
+			}
+		case "o":
+			// open selected favorite in Windows Explorer
+			if m.favCursor < len(m.favorites) {
+				absPath := m.favorites[m.favCursor]
+				_ = exec.Command("explorer.exe", filepath.FromSlash(absPath)).Start()
+			}
+		}
+
+	case modalSubfolderSelect:
+		switch msg.String() {
+		case "esc", "q":
+			m.modal = modalNone
+		case "up", "k":
+			if m.subSelectCursor > 0 {
+				m.subSelectCursor--
+			}
+		case "down", "j":
+			if m.subSelectCursor < len(m.subSelectEntries)-1 {
+				m.subSelectCursor++
+			}
+		case "right":
+			// descend into the currently selected subfolder
+			if m.subSelectCursor < len(m.subSelectEntries) {
+				child := m.subSelectEntries[m.subSelectCursor]
+				newStack := append(append([]string{}, m.subSelectStack...), child)
+				childAbsParts := append([]string{m.snippetsDir}, newStack...)
+				childAbs := filepath.Join(childAbsParts...)
+				childSubs := m.subfolderNames(childAbs)
+				if len(childSubs) > 0 {
+					m.subSelectStack = newStack
+					m.subSelectCursor = 0
+					m.loadSubSelectEntries()
+				}
+			}
+		case "left":
+			// go back one level (up to root folder level)
+			if len(m.subSelectStack) > 1 {
+				m.subSelectStack = m.subSelectStack[:len(m.subSelectStack)-1]
+				m.subSelectCursor = 0
+				m.loadSubSelectEntries()
+			} else {
+				m.modal = modalNone
+			}
+		case "enter":
+			if m.subSelectCursor >= len(m.subSelectEntries) {
+				break
+			}
+			child := m.subSelectEntries[m.subSelectCursor]
+			selectedStack := append(append([]string{}, m.subSelectStack...), child)
+
+			// Build absolute paths
+			buildAbs := func(parts []string) string {
+				allParts := append([]string{m.snippetsDir}, parts...)
+				return filepath.Join(allParts...)
+			}
+			selectedAbs := buildAbs(selectedStack)
+			parentParts := selectedStack[:len(selectedStack)-1]
+			parentAbs := buildAbs(parentParts)
+			_ = selectedAbs
+
+			// Navigate the folder panel: show parentAbs in parent-view mode,
+			// with cursor pointing at the selected child.
+			// Per docs: folder panel shows ~/ (parent files) + all subfolders of parent;
+			// the selected child is highlighted.
+			m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
+			m.snippetsDir = parentAbs
+			m.inParentView = true
+			m.parentViewDir = parentAbs
+
+			// Find the selected child in subfolders of parentAbs
+			childSubs := m.subfolderNames(parentAbs)
+			m.folderCursor = 0
+			for idx, s := range childSubs {
+				if s == child {
+					m.folderCursor = idx + 1 // +1 for the ~/ entry
+					break
+				}
+			}
+			m.fileCursor = 0
+			m.modal = modalNone
+			m.loadFiles()
+			m.loadPreview()
+			m.statusMsg = "Navigated into: " + strings.Join(selectedStack, "/") + "  (← to go back)"
+			m.statusIsSuccess = true
+			return m, clearStatusAfter(4 * time.Second)
+		}
+
+	case modalMultiDeleteConfirm:
+		switch msg.String() {
+		case "esc", "n", "q":
+			m.modal = modalNone
+		case "enter", "y":
+			// delete all selected folders
+			deleted := 0
+			var errs []string
+			for idx := range m.multiDeleteSelected {
+				if idx < len(m.folders) {
+					name := m.folders[idx]
+					path := filepath.Join(m.snippetsDir, name)
+					// remove from favorites
+					absPath := path
+					for i, f := range m.favorites {
+						if f == absPath {
+							m.favorites = append(m.favorites[:i], m.favorites[i+1:]...)
+							m.saveFavorites()
+							break
+						}
+					}
+					if err := os.RemoveAll(path); err != nil {
+						errs = append(errs, name+": "+err.Error())
+					} else {
+						deleted++
+					}
+				}
+			}
+			m.multiDeleteMode = false
+			m.multiDeleteSelected = nil
+			m.modal = modalNone
+			m.folderCursor = 0
+			m.fileCursor = 0
+			m.loadFolders()
+			m.loadFiles()
+			m.loadPreview()
+			if len(errs) > 0 {
+				m.modal = modalError
+				m.modalError = "Some folders could not be deleted:\n" + strings.Join(errs, "\n")
+			} else {
+				m.statusMsg = fmt.Sprintf("%d folder(s) deleted.", deleted)
+				m.statusIsSuccess = true
+				return m, clearStatusAfter(3 * time.Second)
+			}
+		}
+
+	case modalFolderSearch:
+		switch msg.String() {
+		case "esc", "q":
+			m.modal = modalNone
+			m.folderSearchModalQuery = ""
+			m.folderSearchModalResults = nil
+			m.folderSearchModalCursor = 0
+		case "ctrl+c":
+			return m, tea.Quit
+		case "backspace", "ctrl+h":
+			if len(m.folderSearchModalQuery) > 0 {
+				m.folderSearchModalQuery = m.folderSearchModalQuery[:len(m.folderSearchModalQuery)-1]
+				m.folderSearchModalResults = m.searchFoldersRecursive(m.folderSearchModalQuery)
+				m.folderSearchModalCursor = 0
+			}
+		case "up", "k":
+			if m.folderSearchModalCursor > 0 {
+				m.folderSearchModalCursor--
+			}
+		case "down", "j":
+			if m.folderSearchModalCursor < len(m.folderSearchModalResults)-1 {
+				m.folderSearchModalCursor++
+			}
+		case "enter":
+			if m.folderSearchModalCursor < len(m.folderSearchModalResults) {
+				result := m.folderSearchModalResults[m.folderSearchModalCursor]
+				// Navigate to selected folder
+				parentDir := filepath.Dir(result.absPath)
+				folderName := filepath.Base(result.absPath)
+				m.modal = modalNone
+				m.folderSearchModalQuery = ""
+				m.folderSearchModalResults = nil
+				m.folderSearchModalCursor = 0
+				// Push stack and switch
+				if parentDir != m.snippetsDir {
+					m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
+					m.snippetsDir = parentDir
+				}
+				m.inParentView = false
+				m.parentViewDir = ""
+				m.loadFolders()
+				for i, f := range m.folders {
+					if f == folderName {
+						m.folderCursor = i
+						m.folderScroll = clampScroll(i, m.folderScroll, 10)
+						break
+					}
+				}
+				m.fileCursor = 0
+				m.fileScroll = 0
+				m.loadFiles()
+				m.loadPreview()
+			}
+		default:
+			r := msg.String()
+			if len(r) == 1 && r[0] >= 0x20 {
+				m.folderSearchModalQuery += r
+				m.folderSearchModalResults = m.searchFoldersRecursive(m.folderSearchModalQuery)
+				m.folderSearchModalCursor = 0
 			}
 		}
 	}

@@ -80,7 +80,7 @@ interface IFileOpenDialog {
     void SetTitle([MarshalAs(UnmanagedType.LPWStr)] string pszTitle);
     void SetOkButtonLabel([MarshalAs(UnmanagedType.LPWStr)] string pszText);
     void SetFileNameLabel([MarshalAs(UnmanagedType.LPWStr)] string pszLabel);
-    void GetResult(out IntPtr ppsi);
+    void SetResult(out IntPtr ppsi);
     void AddPlace(IntPtr psi, int fdap);
     void SetDefaultExtension([MarshalAs(UnmanagedType.LPWStr)] string pszDefaultExtension);
     void Close(int hr);

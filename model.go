@@ -52,6 +52,10 @@ const (
 	modalDirBrowser
 	modalMoveFileBrowse
 	modalNvimGuide
+	modalAlive
+	modalSubfolderSelect   // "Select the subfolder" modal (docs workflow)
+	modalMultiDeleteConfirm // multi-folder deletion confirmation
+	modalFolderSearch      // folder search modal
 )
 
 type fileEntry struct {
@@ -111,6 +115,7 @@ type model struct {
 	previewSearchQuery  string
 	previewSearchHits   []int // line indices (0-based) of matches
 	previewSearchCursor int   // which hit is currently focused
+	previewZoom         bool  // zoom: show only preview panel
 
 	// folder favorites
 	favorites       []string // folder names marked as favorite
@@ -134,6 +139,7 @@ type model struct {
 	// console easter egg
 	consoleInput   string
 	consoleOutput  string // result text shown after a command
+	aliveInput     string
 
 	// time calculator
 	timeInput string
@@ -146,17 +152,46 @@ type model struct {
 	inParentView   bool   // true when showing the interior of a parent folder
 	parentViewDir  string // abs path of the parent folder currently expanded
 
+	hasRootFiles bool // true when snippetsDir itself contains direct (non-dir) files
+
 	// in-TUI directory browser (replaces PowerShell folder picker)
 	dirBrowser dirBrowser
 
 	// splash shown only when no CLI arg
 	showSplash bool
 	splashChoice int // 0=default, 1=pick
+
+	// subfolder selection modal (opened when entering a folder with subfolders)
+	subSelectStack   []string // breadcrumb path segments from snippetsDir
+	subSelectEntries []string // subfolder names at current level
+	subSelectCursor  int
+
+	// new subfolder modal: abs path of the folder inside which to create the subfolder
+	newSubfolderParentAbs string
+
+	// abs path of the folder targeted by rename/delete modals
+	// (set when modal is opened so inParentView is correctly accounted for)
+	folderOpTargetAbs string
+
+	// multi-folder deletion
+	multiDeleteMode     bool
+	multiDeleteSelected map[int]bool // set of folderCursor indices selected for deletion
+
+	// folder search modal
+	folderSearchModalQuery   string
+	folderSearchModalResults []folderSearchResult
+	folderSearchModalCursor  int
 }
 
 type subNavEntry struct {
 	name     string
 	isDir    bool
+}
+
+// folderSearchResult holds a search result for the folder search modal.
+type folderSearchResult struct {
+	displayPath string // relative path from snippetsDir (e.g. "work/test")
+	absPath     string // absolute path to folder
 }
 
 func newModel(dir string) model {
@@ -245,6 +280,42 @@ func (m *model) currentFolderAbsPath() string {
 	return filepath.Join(m.snippetsDir, name)
 }
 
+// selectedFolderAbs returns the true absolute path of the folder the cursor is
+// on, correctly accounting for inParentView mode.
+// In inParentView, the displayed list is subfolderNames(parentViewDir), so
+// cursor 0 = ~/ (parentViewDir itself), cursor N = parentViewDir/subfolder[N-1].
+// Outside inParentView it falls back to snippetsDir/currentFolderName().
+func (m *model) selectedFolderAbs() string {
+	if m.inParentView {
+		if m.folderCursor == 0 {
+			// ~/ row — the parent folder itself
+			return m.parentViewDir
+		}
+		subs := m.subfolderNames(m.parentViewDir)
+		idx := m.folderCursor - 1
+		if idx < 0 || idx >= len(subs) {
+			return ""
+		}
+		return filepath.Join(m.parentViewDir, subs[idx])
+	}
+	// Normal mode
+	name := m.currentFolderName()
+	if name == "" {
+		return ""
+	}
+	return filepath.Join(m.snippetsDir, name)
+}
+
+// selectedFolderName returns just the base name of the currently selected folder,
+// correctly accounting for inParentView mode.
+func (m *model) selectedFolderName() string {
+	abs := m.selectedFolderAbs()
+	if abs == "" {
+		return ""
+	}
+	return filepath.Base(abs)
+}
+
 func (m *model) isFavorite(name string) bool {
 	abs := filepath.Join(m.snippetsDir, name)
 	for _, f := range m.favorites {
@@ -277,6 +348,19 @@ func (m *model) toggleFavorite(name string) {
 	m.saveFavorites()
 }
 
+// toggleFavoriteAbs adds or removes a favorite by absolute path.
+func (m *model) toggleFavoriteAbs(absPath string) {
+	for i, f := range m.favorites {
+		if f == absPath {
+			m.favorites = append(m.favorites[:i], m.favorites[i+1:]...)
+			m.saveFavorites()
+			return
+		}
+	}
+	m.favorites = append(m.favorites, absPath)
+	m.saveFavorites()
+}
+
 // favDisplayLabel returns a human-readable label for a favorite abs path.
 func (m *model) favDisplayLabel(absPath string) string {
 	root := m.origSnippetsDir
@@ -298,8 +382,17 @@ func (m model) currentFolderInContext() string {
 		}
 		return ""
 	}
-	if m.folderCursor < len(m.folders) {
-		return m.folders[m.folderCursor]
+	// When hasRootFiles, cursor 0 is the ~/ root entry (not a folder name).
+	// Actual folder names start at cursor index 1.
+	idx := m.folderCursor
+	if m.hasRootFiles {
+		if idx == 0 {
+			return "" // ~/ root selected, no folder name
+		}
+		idx-- // shift to 0-based folders slice
+	}
+	if idx < len(m.folders) {
+		return m.folders[idx]
 	}
 	return ""
 }
@@ -307,17 +400,25 @@ func (m model) currentFolderInContext() string {
 func (m *model) loadFolders() {
 	entries, err := os.ReadDir(m.snippetsDir)
 	m.folders = []string{}
+	m.hasRootFiles = false
 	if err != nil {
 		return
 	}
 	for _, e := range entries {
 		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
 			m.folders = append(m.folders, e.Name())
+		} else if !e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			m.hasRootFiles = true
 		}
 	}
 	sort.Strings(m.folders)
-	if m.folderCursor >= len(m.folders) {
-		m.folderCursor = max(0, len(m.folders)-1)
+	// total virtual items = (1 if hasRootFiles) + len(folders)
+	totalItems := len(m.folders)
+	if m.hasRootFiles {
+		totalItems++
+	}
+	if m.folderCursor >= totalItems {
+		m.folderCursor = max(0, totalItems-1)
 	}
 }
 
@@ -337,7 +438,11 @@ func (m *model) loadFiles() {
 			}
 			dir = filepath.Join(m.parentViewDir, subs[idx])
 		}
+	} else if m.hasRootFiles && m.folderCursor == 0 {
+		// ~/ root entry selected: show files directly in snippetsDir
+		dir = m.snippetsDir
 	} else {
+		// normal folder selected — account for the ~/ offset when hasRootFiles
 		folderName := m.currentFolderName()
 		if folderName == "" {
 			return
@@ -407,6 +512,9 @@ func (m model) currentFilesDir() string {
 		}
 		return filepath.Join(m.parentViewDir, subs[idx])
 	}
+	if m.hasRootFiles && m.folderCursor == 0 {
+		return m.snippetsDir
+	}
 	folderName := m.currentFolderName()
 	if folderName == "" {
 		return ""
@@ -455,7 +563,7 @@ func (m *model) loadPreview() {
 		m.previewHighlight = ""
 		return
 	}
-	m.previewContent = string(data)
+	m.previewContent = expandTabs(normalizeLineEndings(string(data)), 4)
 	if isMarkdownFile(f.name) {
 		m.previewIsMarkdown = true
 		m.previewHighlight = renderMarkdown(m.previewContent, m.previewWidth)
@@ -489,7 +597,7 @@ func (m *model) loadPreviewFromPath(path string) {
 		m.previewHighlight = ""
 		return
 	}
-	m.previewContent = string(data)
+	m.previewContent = expandTabs(normalizeLineEndings(string(data)), 4)
 	if isMarkdownFile(name) {
 		m.previewIsMarkdown = true
 		m.previewHighlight = renderMarkdown(m.previewContent, m.previewWidth)
@@ -677,6 +785,75 @@ func (m *model) loadSubNavEntries() {
 			isDir: e.IsDir(),
 		})
 	}
+}
+
+// subSelectAbsDir returns the absolute path for the current subSelectStack level.
+func (m *model) subSelectAbsDir() string {
+	if len(m.subSelectStack) == 0 {
+		return ""
+	}
+	parts := append([]string{m.snippetsDir}, m.subSelectStack...)
+	return filepath.Join(parts...)
+}
+
+// loadSubSelectEntries populates subSelectEntries for the current subSelectStack.
+func (m *model) loadSubSelectEntries() {
+	dir := m.subSelectAbsDir()
+	entries, err := os.ReadDir(dir)
+	m.subSelectEntries = nil
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			m.subSelectEntries = append(m.subSelectEntries, e.Name())
+		}
+	}
+	sort.Strings(m.subSelectEntries)
+}
+
+// subSelectDisplayPath returns the display path for a subfolder entry in the modal.
+// rootName is the top-level folder name (first element of subSelectStack).
+func (m *model) subSelectDisplayPath(subName string) string {
+	parts := append([]string{}, m.subSelectStack...)
+	parts = append(parts, subName)
+	return strings.Join(parts, "/") + "/"
+}
+
+// searchFoldersRecursive walks the snippetsDir recursively and returns all
+// folders whose name (or relative path) contains query (case-insensitive).
+func (m *model) searchFoldersRecursive(query string) []folderSearchResult {
+	q := strings.ToLower(strings.TrimSpace(query))
+	var results []folderSearchResult
+	var walk func(dir, rel string)
+	walk = func(dir, rel string) {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			return
+		}
+		for _, e := range entries {
+			if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+				continue
+			}
+			var displayRel string
+			if rel == "" {
+				displayRel = e.Name()
+			} else {
+				displayRel = rel + "/" + e.Name()
+			}
+			absPath := filepath.Join(dir, e.Name())
+			// match against the full relative path OR just the folder name
+			if q == "" || strings.Contains(strings.ToLower(displayRel), q) {
+				results = append(results, folderSearchResult{
+					displayPath: displayRel + "/",
+					absPath:     absPath,
+				})
+			}
+			walk(absPath, displayRel)
+		}
+	}
+	walk(m.snippetsDir, "")
+	return results
 }
 
 func relativeTime(t time.Time) string {

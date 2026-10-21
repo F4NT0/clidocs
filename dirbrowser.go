@@ -96,54 +96,6 @@ func (db *dirBrowser) adjustScroll(visibleLines int) {
 	}
 }
 
-// renderDirBrowserModal renders the TUI directory picker as a modal string.
-func (m model) renderDirBrowserModal() string {
-	db := m.dirBrowser
-
-	blue := colorAccentBlue
-	orange := colorOrange
-
-	title := lipgloss.NewStyle().Foreground(blue).Bold(true).Render(" Browse — Select Directory")
-	sep := mutedStyle.Render(strings.Repeat("─", 54))
-
-	// breadcrumb
-	crumb := truncate(db.cwd, 52)
-	breadcrumb := lipgloss.NewStyle().Foreground(orange).Render(" " + crumb)
-
-	const visibleLines = 14
-	db.adjustScroll(visibleLines)
-
-	var rows []string
-	if len(db.entries) == 0 {
-		rows = append(rows, mutedStyle.Render("  (no subdirectories)"))
-	} else {
-		end := db.scroll + visibleLines
-		if end > len(db.entries) {
-			end = len(db.entries)
-		}
-		for i, name := range db.entries[db.scroll:end] {
-			absIdx := db.scroll + i
-			label := truncate(name, 46)
-			if absIdx == db.cursor {
-				rows = append(rows,
-					arrowStyle.Render("> ")+
-						lipgloss.NewStyle().Foreground(blue).Bold(true).Render(" "+label))
-			} else {
-				rows = append(rows,
-					"   "+lipgloss.NewStyle().Foreground(colorFg).Render(" "+label))
-			}
-		}
-	}
-
-	footer := helpStyle.Render("Enter: select this dir  ←/Bksp: up  →: open  Esc: cancel")
-
-	parts := []string{title, breadcrumb, sep}
-	parts = append(parts, rows...)
-	parts = append(parts, sep, footer)
-
-	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, parts...))
-}
-
 // ---------------------------------------------------------------------------
 // splashDirBrowserModel — standalone tea.Model used from main.go when the
 // user picks "Browse for a directory..." on the splash screen.
@@ -193,44 +145,44 @@ func (s splashDirBrowserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return s, nil
 }
 
-func (s splashDirBrowserModel) View() string {
-	blue := colorAccentBlue
-	orange := colorOrange
-	muted := lipgloss.NewStyle().Foreground(colorFgMuted)
+func RenderDirBrowserModal(db dirBrowser, width, height int) string {
+	blue := lipgloss.Color("#58a6ff")
+	orange := lipgloss.Color("#e8912d")
+	muted := lipgloss.NewStyle().Foreground(lipgloss.Color("#6e7681"))
 
 	title := lipgloss.NewStyle().Foreground(blue).Bold(true).
-		Render(" Browse — Select Snippets Directory")
+		Render(" Browse — Select Directory")
 	sep := muted.Render(strings.Repeat("─", 58))
-	crumb := s.db.cwd
+	crumb := db.cwd
 	if len(crumb) > 56 {
 		crumb = "…" + crumb[len(crumb)-55:]
 	}
 	breadcrumb := lipgloss.NewStyle().Foreground(orange).Render(" " + crumb)
 
 	const visibleLines = 16
-	s.db.adjustScroll(visibleLines)
+	db.adjustScroll(visibleLines)
 
 	var rows []string
-	if len(s.db.entries) == 0 {
+	if len(db.entries) == 0 {
 		rows = append(rows, muted.Render("  (no subdirectories)"))
 	} else {
-		end := s.db.scroll + visibleLines
-		if end > len(s.db.entries) {
-			end = len(s.db.entries)
+		end := db.scroll + visibleLines
+		if end > len(db.entries) {
+			end = len(db.entries)
 		}
-		for i, name := range s.db.entries[s.db.scroll:end] {
-			absIdx := s.db.scroll + i
+		for i, name := range db.entries[db.scroll:end] {
+			absIdx := db.scroll + i
 			label := name
 			if len(label) > 50 {
 				label = label[:50] + "…"
 			}
-			if absIdx == s.db.cursor {
+			if absIdx == db.cursor {
 				rows = append(rows,
 					lipgloss.NewStyle().Foreground(orange).Render("> ")+
 						lipgloss.NewStyle().Foreground(blue).Bold(true).Render(" "+label))
 			} else {
 				rows = append(rows,
-					"   "+lipgloss.NewStyle().Foreground(colorFg).Render(" "+label))
+					"   "+lipgloss.NewStyle().Foreground(lipgloss.Color("#c9d1d9")).Render(" "+label))
 			}
 		}
 	}
@@ -242,10 +194,14 @@ func (s splashDirBrowserModel) View() string {
 	)
 
 	box := lipgloss.NewStyle().
-		Background(colorBg).
-		Width(s.width).
-		Height(s.height).
+		Background(lipgloss.Color("#0D0D0D")).
+		Width(width).
+		Height(height).
 		Align(lipgloss.Center, lipgloss.Center).
 		Render(inner)
 	return box
+}
+
+func (s splashDirBrowserModel) View() string {
+	return RenderDirBrowserModal(s.db, s.width, s.height)
 }
