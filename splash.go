@@ -63,13 +63,7 @@ func (s splashModel) View() string {
 	green := lipgloss.Color("#00ff88")
 	muted := lipgloss.NewStyle().Foreground(lipgloss.Color("#6e7681"))
 
-	ascii := `
- ██████╗██╗     ██╗██████╗  ██████╗  ██████╗███████╗
-██╔════╝██║     ██║██╔══██╗██╔═══██╗██╔════╝██╔════╝
-██║     ██║     ██║██║  ██║██║   ██║██║     ███████╗
-██║     ██║     ██║██║  ██║██║   ██║██║     ╚════██║
-╚██████╗███████╗██║██████╔╝╚██████╔╝╚██████╗███████║
- ╚═════╝╚══════╝╚═╝╚═════╝  ╚═════╝  ╚═════╝╚══════╝`
+	ascii := asciiLogo
 
 	asciiStyle := lipgloss.NewStyle().
 		Foreground(green).
@@ -105,6 +99,7 @@ func (s splashModel) View() string {
 		subtitle,
 		tagline,
 		"",
+		lipgloss.NewStyle().Foreground(lipgloss.Color("#f1e05a")).Render("V2.0.0"),
 		sep,
 		"",
 		cursor0+opt0Style.Render(option0),

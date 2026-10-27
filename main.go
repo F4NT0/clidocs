@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"clidocs/internal/installer"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -14,6 +16,24 @@ func main() {
 	if len(os.Args) >= 2 {
 		// Directory argument provided — skip splash and go directly to app
 		arg := os.Args[1]
+		switch arg {
+		case "--help", "-h", "help":
+			runHelp()
+			return
+		case "--install", "install":
+			skip := len(os.Args) > 2 && (os.Args[2] == "-y" || os.Args[2] == "--yes")
+			if err := installer.Run(installer.Config{Logo: asciiLogo, Version: "(latest)"}, skip); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "--uninstall", "uninstall":
+			runUninstall(os.Args[2:])
+			return
+		case "--version", "-v", "version":
+			fmt.Println("clidocs V" + Version)
+			return
+		}
 		var snippetsDir string
 		if arg == "." {
 			var err error
