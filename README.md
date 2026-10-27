@@ -78,7 +78,8 @@
 - **Delete with confirmation** — press `d` to delete a snippet safely
 - **Move between folders** — press `m` to move a snippet to another folder
 - **GitHub sync** — push your snippets to a remote repository with a single key press
-- **TUI Installer** — `clidocs-install.exe` adds `clidocs` to PATH automatically
+- **TUI Installer / Uninstaller** — `clidocs --install` (or `clidocs-installer.exe`) downloads the latest GitHub release and installs it; `clidocs --uninstall` removes it completely
+- **Interactive help** — `clidocs --help` shows tabbed documentation of every part of the system
 - **CLI directory argument** — run `clidocs`, `clidocs .`, or `clidocs <path>` to open any directory
 - **Console easter egg** — press `:` from any panel to open the `Cmdline` console with commands: `time`, `whoami`, `nvim`, `help`, `clear`
 - **Work hours calculator** — `time` command computes coffee break, lunch, normal exit and max exit times
@@ -110,49 +111,71 @@
 
 ## Installation
 
+clidocs is installed, updated and removed entirely through its own commands. The installer downloads the **latest GitHub release** (`clidocs.exe` from [F4NT0/clidocs](https://github.com/F4NT0/clidocs/releases)), verifies its SHA-256 checksum, copies it to `%LOCALAPPDATA%\clidocs`, adds that folder to your user `PATH` and creates the `clidocs` command in PowerShell.
+
+### Option 1 — Installer executable
+
+Download `clidocs-installer.exe` and run it (or build it yourself):
+
 ```powershell
-# Clone the repository
-git clone https://github.com/your-username/clidocs.git
-cd clidocs
-
-# Build
-go build -o clidocs.exe .
-
-# Run
-.\clidocs.exe
-
-# Install globally into the computer
-.\clidocs-install.exe
-
+go build -o clidocs-installer.exe ./cmd/clidocs-installer
+.\clidocs-installer.exe
 ```
 
-### How to install globally into the windows
+### Option 2 — From the cloned repository
 
-> Run `.\clidocs-install.exe` as administrator
+```powershell
+git clone https://github.com/F4NT0/clidocs.git
+cd clidocs
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/instalador-pagina-inicial.png" alt="clidocs installer" width="600">
-</td></tr></table>
+# Install through the repository (no build step needed)
+go run . --install
+```
 
-> Select the installation path and click "Next"
+> `go run . --install` runs the same installer TUI. It installs the **latest published release** from GitHub, not the local working tree. To use your own build, run `go build -o clidocs.exe .` and execute it directly.
 
-<table align="center"><tr><td align="center" width="9999">
-    <img src="images/instalador-local-salvar.png" alt="clidocs installer" width="600">
-</td></tr></table>
+### Option 3 — From an installed clidocs
 
-> If there's already an .exe in the location (to update), it will ask if you want to replace it.
+```powershell
+clidocs --install      # install or update to the latest release
+clidocs --install -y   # skip the confirmation prompt
+```
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/instalador-update-exe.png" alt="clidocs installer" width="600">
-</td></tr></table>
+### Installer screen
 
-> After change there's a success
+The installer shows the ASCII logo, asks for confirmation and then runs each step with its own progress bar (blue while working, green when finished):
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/instalador-sucesso.png" alt="clidocs installer" width="600">
-</td></tr></table>
+1. Find the latest release on GitHub
+2. Download `clidocs.exe`
+3. Verify download integrity (SHA-256)
+4. Install program files into `%LOCALAPPDATA%\clidocs`
+5. Add clidocs to the user `PATH`
+6. Create the `clidocs` command in PowerShell
 
-After that, open any PowerShell window and type `clidocs`.
+If clidocs is already installed, the old executable is replaced, so the same command also updates it. After it finishes, open a **new** terminal and type `clidocs`.
+
+### Uninstall
+
+```powershell
+clidocs --uninstall      # asks for confirmation
+clidocs --uninstall -y   # skip the confirmation prompt
+```
+
+The uninstaller finds every `clidocs.exe` on your `PATH` (plus `%LOCALAPPDATA%\clidocs`), removes the PowerShell alias, removes their folders from the user `PATH` and deletes the executables. Folders are deleted only when they end up empty. **Your snippets are never deleted.**
+
+### Command-line options
+
+| Command | Description |
+|---|---|
+| `clidocs` | Start with the splash screen |
+| `clidocs .` / `clidocs <path>` | Open a directory directly |
+| `clidocs --help` | Interactive help with one tab per topic (`-h`, `help`) |
+| `clidocs --version` | Print the version (`-v`, `version`) |
+| `clidocs --install` | Install / update from the latest GitHub release |
+| `clidocs --uninstall` | Remove clidocs from the computer |
+
+> **Snippets are stored in:** `%USERPROFILE%\clidocs_snippets\`  
+> The directory is created automatically on first run. Each sub-folder becomes a category in the Folders panel.
 
 > **Snippets are stored in:** `%USERPROFILE%\clidocs_snippets\`  
 > The directory is created automatically on first run. Each sub-folder becomes a category in the Folders panel.
@@ -856,7 +879,12 @@ The project is currently in transition to Clean Architecture. Due to Bubble Tea 
 ```
 clidocs/
 ├── cmd/
-│   └── install/                 # TUI installer scripts
+│   ├── clidocs-installer/       # clidocs-installer.exe (downloads and installs the latest release)
+│   └── install/                 # Legacy local installer
+├── internal/
+│   └── installer/               # Shared installer TUI used by `--install` and clidocs-installer
+├── helpcmd.go                   # `clidocs --help` tabbed help
+├── uninstall.go                 # `clidocs --uninstall` TUI
 ├── *.go                          # Core application files (main.go, model.go, view.go, update.go, gitconfig.go, gitsync.go, etc.)
 ├── console_modals.go            # Console-related modals (renamed from internal/ui/modals/console.go)
 ├── file_modals.go               # File operation modals
@@ -878,7 +906,7 @@ clidocs/
 | Package | Purpose |
 |---|---|
 | `github.com/charmbracelet/bubbletea` | TUI framework (Elm architecture) |
-| `github.com/charmbracelet/bubbles` | Text input component |
+| `github.com/charmbracelet/bubbles` | Text input and progress bar components |
 | `github.com/charmbracelet/lipgloss` | Layout and styling |
 | `github.com/charmbracelet/glamour` | Markdown rendering (GitHub Dark style) |
 | `github.com/alecthomas/chroma/v2` | Syntax highlighting |
