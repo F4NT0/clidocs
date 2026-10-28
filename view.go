@@ -498,6 +498,12 @@ func (m model) renderPreviewPanel(w, h int) string {
 	if len(m.previewSearchHits) > 0 {
 		currentHitLine = m.previewSearchHits[m.previewSearchCursor]
 	}
+	hl := func(s string) string {
+		if m.previewSearchActive && len(m.previewSearchHits) > 0 {
+			return highlightMatches(s, m.previewSearchQuery)
+		}
+		return s
+	}
 
 	if m.previewIsImage {
 		lines := strings.Split(m.previewHighlight, "\n")
@@ -539,7 +545,7 @@ func (m model) renderPreviewPanel(w, h int) string {
 			// glamour output: render lines directly without gutter or hit markers
 			// (its ANSI sequences would be mangled by prefix injection)
 			for _, line := range hLines[start:end] {
-				contentLines = append(contentLines, truncateAnsiLine(line, lineMaxW))
+				contentLines = append(contentLines, hl(truncateAnsiLine(line, lineMaxW)))
 			}
 		} else {
 			// line number gutter width
@@ -561,15 +567,15 @@ func (m model) renderPreviewPanel(w, h int) string {
 					}
 					prefix := gnStyle.Render(lineNum) + mutedStyle.Render(" │ ")
 					prefixW := gnW + 3
-					rendered = prefix + truncateAnsiLine(line, lineMaxW-prefixW)
+					rendered = prefix + hl(truncateAnsiLine(line, lineMaxW-prefixW))
 				} else if absLine == currentHitLine {
 					prefix := lipgloss.NewStyle().Foreground(colorOrange).Bold(true).Render("▶ ")
-					rendered = prefix + truncateAnsiLine(line, lineMaxW-2)
+					rendered = prefix + hl(truncateAnsiLine(line, lineMaxW-2))
 				} else if hitSet[absLine] {
 					prefix := lipgloss.NewStyle().Foreground(colorGreen).Render("• ")
-					rendered = prefix + truncateAnsiLine(line, lineMaxW-2)
+					rendered = prefix + hl(truncateAnsiLine(line, lineMaxW-2))
 				} else {
-					rendered = truncateAnsiLine(line, lineMaxW)
+					rendered = hl(truncateAnsiLine(line, lineMaxW))
 				}
 				contentLines = append(contentLines, rendered)
 			}
@@ -620,14 +626,14 @@ func (m model) renderStatusBar() string {
 			help = "Type word then Enter to search  Esc: cancel"
 		}
 	} else if m.multiDeleteMode {
-		help = "MULTI-DELETE: Space=select/deselect  X=confirm  Esc=cancel  ↑↓: navigate"
+		help = "MULTI-DELETE: Space=select/deselect  D=confirm  Esc=cancel  ↑↓: navigate"
 	} else {
 		switch m.activePanel {
 		case panelFolders:
 			if len(m.folderDirStack) > 0 {
-				help = "Enter: open | ←: back | n: new | N: subfolder | r: rename | x: delete | d: fav | /: search | q: quit"
+				help = "Enter: open | ←: back | n: new | N: subfolder | r: rename | d: delete | f: fav | /: search | q: quit"
 			} else {
-				help = "Enter: open | n: new | N: subfolder | r: rename | x: delete | d: fav | /: search  | o: pwd | q: quit"
+				help = "Enter: open | n: new | N: subfolder | r: rename | d: delete | f: fav | /: search  | o: pwd | q: quit"
 			}
 		case panelFiles:
 			help = "Enter: edit | /: search | n: new | r: rename | m: move | c: import | d: delete"
@@ -694,12 +700,14 @@ func (m model) renderWithModal() string {
 		modal = RenderTimeCalcModal(m.timeResult, m.modalInput.View())
 	case modalWhoami:
 		modal = RenderWhoamiModal()
+	case modalLs:
+		modal = RenderLsModal(m.snippetsDir, m.lsTree, m.lsScroll, m.lsInput, m.lsMsg, m.height)
+	case modalHelp:
+		modal = RenderHelpPanel(m.helpTab, m.helpScroll, m.width, m.height)
 	case modalHelpConsole:
-		modal = RenderHelpConsoleModal()
+		modal = RenderCmdHelp(m.consoleHelpTab, m.consoleHelpScroll, m.width, m.height)
 	case modalAlive:
 		modal = RenderAliveModal(m.aliveInput)
-	case modalNvimGuide:
-		modal = RenderNvimGuideModal()
 	case modalSubfolderSelect:
 		modal = RenderSubfolderSelectModal(m.subSelectEntries, m.subSelectCursor)
 	case modalMultiDeleteConfirm:

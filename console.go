@@ -1,74 +1,154 @@
 package main
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 )
 
+const (
+	lsTreeDepth = 3
+	lsTreeMax   = 500
+)
+
+// consoleTree returns the lines of a tree view of the directories inside dir.
+func consoleTree(dir string) []string {
+	var lines []string
+	var walk func(d, prefix string, depth int)
+	walk = func(d, prefix string, depth int) {
+		entries, err := os.ReadDir(d)
+		if err != nil {
+			return
+		}
+		var dirs []string
+		for _, e := range entries {
+			if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+				dirs = append(dirs, e.Name())
+			}
+		}
+		for i, name := range dirs {
+			if len(lines) >= lsTreeMax {
+				return
+			}
+			branch, next := "├── ", "│   "
+			if i == len(dirs)-1 {
+				branch, next = "└── ", "    "
+			}
+			lines = append(lines, prefix+branch+name)
+			if depth < lsTreeDepth {
+				walk(filepath.Join(d, name), prefix+next, depth+1)
+			}
+		}
+	}
+	walk(dir, "", 1)
+	if len(lines) == 0 {
+		lines = []string{"(no directories)"}
+	}
+	return lines
+}
+
+// lsViewRows is the number of tree rows visible in the ls panel.
+func lsViewRows(termH int) int { return max(min(termH-14, 20), 4) }
+
+// RenderLsModal draws the directory tree panel opened by the "ls" console command.
+func RenderLsModal(dir string, tree []string, scroll int, input, msg string, termH int) string {
+	blue := colorAccentBlue
+	title := lipgloss.NewStyle().Foreground(blue).Bold(true).Render("Directory tree")
+	sep := mutedStyle.Render(strings.Repeat("─", 50))
+	prompt := lipgloss.NewStyle().Foreground(blue).Render("> ") +
+		lipgloss.NewStyle().Foreground(colorFg).Render(input) +
+		lipgloss.NewStyle().Foreground(colorFgMuted).Render("█")
+	inputLine := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(blue).Padding(0, 1).Width(48).Render(prompt)
+
+	rows := lsViewRows(termH)
+	end := min(scroll+rows, len(tree))
+	orange := lipgloss.NewStyle().Foreground(colorOrange)
+	lines := []string{title, sep, inputLine, "", sep, orange.Render(dir)}
+	for _, l := range tree[scroll:end] {
+		lines = append(lines, orange.Render(l))
+	}
+	for i := end - scroll; i < rows; i++ {
+		lines = append(lines, "")
+	}
+	if len(tree) > rows {
+		lines = append(lines, mutedStyle.Render(fmt.Sprintf("(%d-%d of %d)", scroll+1, end, len(tree))))
+	}
+	if msg != "" {
+		lines = append(lines, lipgloss.NewStyle().Foreground(lipgloss.Color("#f85149")).Render(msg))
+	}
+	lines = append(lines, "", sep, mutedStyle.Render("cd <name>: open  ↑/↓: scroll  Esc: back"))
+	style := lipgloss.NewStyle().Background(colorBg).Border(lipgloss.RoundedBorder()).BorderForeground(blue).Padding(0, 1)
+	return style.Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
+}
+
+// changeDir makes target the directory shown by clidocs.
+func (m *model) changeDir(target string) {
+	if m.origSnippetsDir == "" {
+		m.origSnippetsDir = m.snippetsDir
+	}
+	m.folderDirStack = append(m.folderDirStack, m.snippetsDir)
+	m.snippetsDir = target
+	m.inParentView = false
+	m.parentViewDir = ""
+	m.folderCursor, m.folderScroll = 0, 0
+	m.fileCursor, m.fileScroll = 0, 0
+	m.inFavSection = false
+	m.loadFolders()
+	m.loadFavorites()
+	m.loadFiles()
+	m.loadPreview()
+}
+
+// consoleResolveCd resolves the argument of "cd" relative to cur and checks it is a directory.
+func consoleResolveCd(cur, arg string) (string, error) {
+	arg = strings.Trim(strings.TrimSpace(arg), `"'`)
+	if arg == "" {
+		return "", fmt.Errorf("usage: cd <directory>")
+	}
+	target := arg
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(cur, target)
+	}
+	target = filepath.Clean(target)
+	if _, err := os.Stat(target); err != nil {
+		// case-insensitive match of a direct child name
+		entries, rerr := os.ReadDir(cur)
+		if rerr != nil {
+			return "", fmt.Errorf("cd: cannot find '%s'", arg)
+		}
+		want := strings.ToLower(strings.Trim(filepath.ToSlash(arg), "./"))
+		found := ""
+		for _, e := range entries {
+			if e.IsDir() && strings.ToLower(e.Name()) == want {
+				found = filepath.Join(cur, e.Name())
+				break
+			}
+		}
+		if found == "" {
+			return "", fmt.Errorf("cd: cannot find '%s'", arg)
+		}
+		target = found
+	}
+	if fi, err := os.Stat(target); err != nil || !fi.IsDir() {
+		return "", fmt.Errorf("cd: '%s' is not a directory", arg)
+	}
+	return target, nil
+}
+
 // These constants are defined in the config package
 const (
 	whoamiText = `
-  ┌────────────────────────────────────────────────────┐
-  │  Gabriel Stundner                                  │
-  │  Software Developer                                │
-  │                                                    │
-  │  GitHub  : github.com/F4NT0                        │
-  │  Editor  : Neovim                                  │
-  │  Shell   : PowerShell / pwsh                       │
-  │  OS      : Windows 11                              │
-  │                                                    │
-  │  "Rise and Rise again, until lambs become lions!"  │
-  └────────────────────────────────────────────────────┘
+Name    : Gabriel Stundner
+Role    : Software Developer
+GitHub  : github.com/F4NT0
+Editor  : Neovim
+Shell   : PowerShell / pwsh
+OS      : Windows 11
+Quote   : "Rise and Rise again, until lambs become lions!"
 `
-
-	helpLeft = ` GLOBAL
-  Tab/→/←   Switch panels
-  s         Folders panel
-  g         Sync GitHub
-  G         Git config
-  o         Dir info
-  :         Console
-  q/Ctrl+C  Quit
-
- FOLDERS
-  ↑↓/k/j   Navigate
-  Enter     Open/subfolder
-  ←         Parent dir
-  n         New folder
-  N         New subfolder
-  R         Rename
-  D         Delete
-  f/F       Fav / Favs modal
-  H         Home dir
-  /         Search folders`
-
-	helpRight = ` FILES
-  ↑↓/k/j   Navigate
-  Enter     Open Neovim
-  /         Search files
-  n         New file
-  r         Rename
-  m         Move
-  c         Import
-  d         Delete
-
- PREVIEW
-  ↑↓/k/j   Scroll
-  /         Word search
-  L         Line numbers
-  c         Copy clipboard
-  e         Neovim
-  v         VS Code
-  o         Open folder
-
- CONSOLE COMMANDS
-  time      Work hours
-  whoami    User info
-  alive     Keep PC awake (presses B)
-  help      This help
-  clear     Clear output
-  exit/q    Close`
 )
 
 func RenderConsoleModal(consoleInput, consoleOutput string, width int) string {
@@ -92,7 +172,7 @@ func RenderConsoleModal(consoleInput, consoleOutput string, width int) string {
 		}
 	}
 	rows = append(rows, "", sep,
-		mutedStyle.Render("time · whoami · nvim · help · exit  |  Esc: close"))
+		mutedStyle.Render("cmd · ls · cd · time · whoami · nvim · exit  |  Esc: close"))
 	style := lipgloss.NewStyle().
 		Background(colorBg).
 		Border(lipgloss.RoundedBorder()).
@@ -126,125 +206,28 @@ func RenderTimeCalcModal(timeResult string, modalInputView string) string {
 }
 
 func RenderWhoamiModal() string {
-	title := lipgloss.NewStyle().Foreground(colorAccentBlue).Bold(true).Render(" whoami")
+	green := colorAccentBlue
+	title := lipgloss.NewStyle().Foreground(green).Bold(true).Render("Cmdline")
 	sep := mutedStyle.Render(strings.Repeat("─", 50))
-	var rows []string
-	rows = append(rows, title, sep)
-	for _, l := range strings.Split(whoamiText, "\n") {
-		rows = append(rows, lipgloss.NewStyle().Foreground(colorFg).Render(l))
-	}
-	rows = append(rows, sep, mutedStyle.Render("Enter / Esc: back to console"))
-	return modalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
-}
-
-func RenderHelpConsoleModal() string {
-	white := lipgloss.Color("white")
-	colStyle := lipgloss.NewStyle().
-		Foreground(colorFg).
-		Background(colorBg).
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(white).
+	prompt := lipgloss.NewStyle().Foreground(green).Render("> ") +
+		lipgloss.NewStyle().Foreground(colorFg).Render("whoami") +
+		lipgloss.NewStyle().Foreground(colorFgMuted).Render("█")
+	inputLine := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(green).
 		Padding(0, 1).
-		Width(34)
-
-	leftCol := colStyle.Render(
-		lipgloss.NewStyle().Foreground(colorFg).Render(helpLeft),
-	)
-	rightCol := colStyle.Render(
-		lipgloss.NewStyle().Foreground(colorFg).Render(helpRight),
-	)
-
-	columns := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, "  ", rightCol)
-
-	title := lipgloss.NewStyle().Foreground(white).Bold(true).Render(" Help — Keyboard Shortcuts & Commands")
-	footer := mutedStyle.Render("Enter / Esc: back to console")
-
-	outer := lipgloss.NewStyle().
-		Background(colorBg).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(white).
-		Padding(0, 1)
-	return outer.Render(lipgloss.JoinVertical(lipgloss.Left, title, "", columns, "", footer))
-}
-
-func RenderNvimGuideModal() string {
-	green := lipgloss.Color("#57a143")
-	cyan := lipgloss.Color("#00e5ff")
-	orange := colorOrange
-	blue := colorAccentBlue
-
-	h := func(s string) string { return lipgloss.NewStyle().Foreground(green).Bold(true).Render(s) }
-	k := func(s string) string {
-		return lipgloss.NewStyle().Foreground(orange).Background(lipgloss.Color("#0D0D0D")).Padding(0, 1).Render(s)
+		Width(48).
+		Render(prompt)
+	rows := []string{title, sep, inputLine, "", sep}
+	for _, l := range strings.Split(strings.TrimSpace(whoamiText), "\n") {
+		rows = append(rows, lipgloss.NewStyle().Foreground(colorOrange).Render(l))
 	}
-	dim := func(s string) string { return mutedStyle.Render(s) }
-
-	colW := 46
-
-	left := lipgloss.NewStyle().
-		Foreground(colorFg).Background(colorBg).
-		Border(lipgloss.NormalBorder()).BorderForeground(blue).
-		Padding(0, 1).Width(colW).Render(
-		h(" Navigation") + "\n" + dim(strings.Repeat("─", colW-2)) + "\n" +
-			k("h j k l") + dim("  ← ↓ ↑ →  (or arrow keys)") + "\n" +
-			k("gg") + dim("       go to top of file") + "\n" +
-			k("G") + dim("        go to bottom of file") + "\n" +
-			k("Ctrl+d") + dim("  scroll half page down") + "\n" +
-			k("Ctrl+u") + dim("  scroll half page up") + "\n" +
-			k("w") + dim(" / ") + k("b") + dim("    next / previous word") + "\n" +
-			k("0") + dim(" / ") + k("$") + dim("    start / end of line") + "\n" +
-			"\n" +
-			h(" Editing") + "\n" + dim(strings.Repeat("─", colW-2)) + "\n" +
-			k("i") + dim("        insert before cursor") + "\n" +
-			k("a") + dim("        insert after cursor") + "\n" +
-			k("o") + dim("        new line below, insert") + "\n" +
-			k("O") + dim("        new line above, insert") + "\n" +
-			k("Esc") + dim("      return to Normal mode") + "\n" +
-			k("u") + dim("        undo") + "\n" +
-			k("Ctrl+r") + dim("  redo") + "\n" +
-			k("dd") + dim("       delete (cut) line") + "\n" +
-			k("yy") + dim("       yank (copy) line") + "\n" +
-			k("p") + dim("        paste after cursor") + "\n" +
-			k("x") + dim("        delete character"),
-	)
-
-	right := lipgloss.NewStyle().
-		Foreground(colorFg).Background(colorBg).
-		Border(lipgloss.NormalBorder()).BorderForeground(blue).
-		Padding(0, 1).Width(colW).Render(
-		h(" Save & Quit") + "\n" + dim(strings.Repeat("─", colW-2)) + "\n" +
-			k(":w") + dim("       save file") + "\n" +
-			k(":q") + dim("       quit (no unsaved changes)") + "\n" +
-			k(":wq") + dim("  / ") + k(":x") + dim("  save and quit") + "\n" +
-			k(":q!") + dim("      quit without saving") + "\n" +
-			"\n" +
-			h(" Search") + "\n" + dim(strings.Repeat("─", colW-2)) + "\n" +
-			k("/word") + dim("    search forward") + "\n" +
-			k("n") + dim(" / ") + k("N") + dim("     next / previous match") + "\n" +
-			"\n" +
-			h(" Comment multiple lines") + "\n" + dim(strings.Repeat("─", colW-2)) + "\n" +
-			dim("1. ") + k("Ctrl+V") + dim(" → select lines (block mode)") + "\n" +
-			dim("2. ") + k(":") + dim(" → opens command line") + "\n" +
-			dim("3. type ") + k("'<,'>s/^/#") + dim("  → adds # at line start") + "\n" +
-			"\n" +
-			h(" Uncomment multiple lines") + "\n" + dim(strings.Repeat("─", colW-2)) + "\n" +
-			dim("1. ") + k("Ctrl+V") + dim(" → select lines (block mode)") + "\n" +
-			dim("2. ") + k(":") + dim(" → opens command line") + "\n" +
-			dim("3. type ") + k(`'<,'>s/^#//`) + dim("  → removes # from start") + "\n" +
-			"\n" +
-			h(" Visual mode") + "\n" + dim(strings.Repeat("─", colW-2)) + "\n" +
-			k("v") + dim("  char select  ") + k("V") + dim("  line select") + "\n" +
-			k("Ctrl+V") + dim("  block select"),
-	)
-
-	columns := lipgloss.JoinHorizontal(lipgloss.Top, left, "  ", right)
-	title := lipgloss.NewStyle().Foreground(cyan).Bold(true).Render(" Neovim Quick Reference")
-	footer := mutedStyle.Render("Enter / Esc: back to console")
-
-	outer := lipgloss.NewStyle().
+	rows = append(rows, "", sep,
+		mutedStyle.Render("Enter: open fantodocs.github.io  Esc: back to console"))
+	style := lipgloss.NewStyle().
 		Background(colorBg).
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyan).
-		Padding(1, 2)
-	return outer.Render(lipgloss.JoinVertical(lipgloss.Left, title, "", columns, "", footer))
+		BorderForeground(green).
+		Padding(0, 1)
+	return style.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
 }

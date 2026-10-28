@@ -50,6 +50,7 @@ var helpTabs = []helpTab{
 			{"Left / h", "Go back to the parent folder (or the previous panel)."},
 			{"Enter", "Open the selected folder or file."},
 			{"H", "Return to the original snippets directory when you are elsewhere."},
+			{"?", "Open the help panel with every available command."},
 			{"q / Ctrl+C", "Quit the application."},
 		}},
 		{"Subfolders", "Folders marked with a '>' contain subfolders. Entering one pushes it on a navigation stack; Left or h pops back. The '~/' row represents files stored directly in the current directory.", nil},
@@ -59,14 +60,14 @@ var helpTabs = []helpTab{
 			{"n", "Create a new folder."},
 			{"N", "Create a new subfolder inside the selected folder."},
 			{"r", "Rename the selected folder."},
-			{"x", "Delete the selected folder (asks for confirmation)."},
-			{"X", "Multi-delete mode: Space selects folders, Enter confirms, Esc cancels."},
+			{"d", "Delete the selected folder (asks for confirmation)."},
+			{"D", "Multi-delete mode: Space selects folders, D confirms, Esc cancels."},
 			{"/", "Search folders recursively and jump to a result."},
 			{"o", "Show information about the current snippets directory."},
 		}},
 		{"Favorites", "Favorite folders are marked with a star and can be reached quickly from anywhere.", []helpEntry{
-			{"d", "Toggle favorite on the selected folder."},
-			{"D", "Open the favorites list."},
+			{"f", "Toggle favorite on the selected folder."},
+			{"F", "Open the favorites list."},
 		}},
 	}},
 	{"Files", []helpSection{
@@ -104,10 +105,11 @@ var helpTabs = []helpTab{
 			{"time", "Work hours calculator: enter a start time (HH:MM)."},
 			{"alive", "Show the alive screen."},
 			{"whoami", "Show information about the author."},
-			{"help", "Show keyboard shortcuts and commands."},
+			{"cmd", "Show the list of console commands."},
 			{"nvim", "Neovim quick reference (navigation, editing, save & quit, search, comments)."},
-			{"clear", "Clear the console output."},
-			{"exit / quit", "Close the console."},
+			{"ls", "Open a tree view of the directories of the open directory."},
+			{"cd <dir>", "Open a directory in clidocs (type it in the ls panel or in the console)."},
+			{"exit / quit", "Close clidocs."},
 		}},
 	}},
 }
@@ -156,7 +158,14 @@ func (m helpModel) View() string {
 	if m.w == 0 {
 		return ""
 	}
-	innerW := m.w - 6
+	v, _ := renderHelp(helpTabs, m.tab, m.scroll, m.w, m.h, " clidocs V"+Version+" — Help", "q/Esc: quit")
+	return v
+}
+
+// renderHelp draws the tabbed help for the given size and returns the view and
+// the maximum scroll offset of the active tab.
+func renderHelp(tabs []helpTab, tab, scroll, w, h int, header, quitHint string) (string, int) {
+	innerW := w - 6
 	if innerW > 100 {
 		innerW = 100
 	}
@@ -168,18 +177,18 @@ func (m helpModel) View() string {
 		Border(lipgloss.RoundedBorder()).BorderForeground(colorAccentBlue).Padding(0, 1)
 	idleTab := lipgloss.NewStyle().Foreground(colorFgMuted).
 		Border(lipgloss.RoundedBorder()).BorderForeground(colorBorder).Padding(0, 1)
-	var tabs []string
-	for i, t := range helpTabs {
+	var tabViews []string
+	for i, t := range tabs {
 		label := fmt.Sprintf("%d %s", i+1, t.name)
-		if i == m.tab {
-			tabs = append(tabs, activeTab.Render(label))
+		if i == tab {
+			tabViews = append(tabViews, activeTab.Render(label))
 		} else {
-			tabs = append(tabs, idleTab.Render(label))
+			tabViews = append(tabViews, idleTab.Render(label))
 		}
 	}
-	tabBar := lipgloss.JoinHorizontal(lipgloss.Top, tabs...)
-	if lipgloss.Width(tabBar) > m.w {
-		tabBar = lipgloss.NewStyle().MaxWidth(m.w).Render(tabBar)
+	tabBar := lipgloss.JoinHorizontal(lipgloss.Top, tabViews...)
+	if lipgloss.Width(tabBar) > w {
+		tabBar = lipgloss.NewStyle().MaxWidth(w).Render(tabBar)
 	}
 
 	title := lipgloss.NewStyle().Foreground(colorOrange).Bold(true)
@@ -188,7 +197,7 @@ func (m helpModel) View() string {
 	sep := mutedStyle.Render(strings.Repeat("─", innerW-2))
 
 	var lines []string
-	for _, s := range helpTabs[m.tab].sections {
+	for _, s := range tabs[tab].sections {
 		lines = append(lines, title.Render(" "+s.title), sep)
 		if s.intro != "" {
 			lines = append(lines, wrap.Render(s.intro))
@@ -211,7 +220,12 @@ func (m helpModel) View() string {
 		lines = append(lines, "")
 	}
 
-	bodyH := m.h - lipgloss.Height(tabBar) - 6
+	single := len(tabs) == 1
+	tabBarH := lipgloss.Height(tabBar)
+	if single {
+		tabBarH = 0
+	}
+	bodyH := h - 2 - (4 + tabBarH)
 	if bodyH < 3 {
 		bodyH = 3
 	}
@@ -220,19 +234,121 @@ func (m helpModel) View() string {
 		all = append(all, strings.Split(l, "\n")...)
 	}
 	maxScroll := max(0, len(all)-bodyH)
-	scroll := min(m.scroll, maxScroll)
+	scroll = min(scroll, maxScroll)
 	end := min(len(all), scroll+bodyH)
 	body := strings.Join(all[scroll:end], "\n")
 
 	panel := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(colorBorder).
 		Padding(0, 1).Width(innerW).Height(bodyH).Render(body)
 
-	hint := "←/→ Tab: switch topic   1-9: jump   ↑/↓: scroll   q/Esc: quit"
+	hint := "←/→ Tab: switch topic   1-9: jump   ↑/↓: scroll   " + quitHint
+	if single {
+		hint = quitHint
+	}
 	if maxScroll > 0 {
 		hint += fmt.Sprintf("   (%d/%d)", scroll+1, maxScroll+1)
 	}
-	header := panelTitleStyle.Render(" clidocs V" + Version + " — Help")
-	return lipgloss.JoinVertical(lipgloss.Left, header, tabBar, panel, mutedStyle.Render(" "+hint))
+	parts := []string{panelTitleStyle.Render(header)}
+	if !single {
+		parts = append(parts, tabBar)
+	}
+	parts = append(parts, panel, mutedStyle.Render(" "+hint))
+	return lipgloss.JoinVertical(lipgloss.Left, parts...), maxScroll
+}
+
+var consoleCmdTab = helpTab{"Console commands", []helpSection{
+	{"Available commands", "Type a command in the console and press Enter.", []helpEntry{
+		{"cmd", "Show this list of console commands and the Neovim quick reference."},
+		{"time", "Work hours calculator: enter your start time (HH:MM) to get the coffee break, lunch and exit times."},
+		{"alive", "Keep the PC awake by pressing the B key every 2 seconds."},
+		{"whoami", "Show information about the author."},
+		{"nvim", "Open the Neovim quick reference tab directly."},
+		{"ls", "Open a tree view of the directories of the open directory."},
+		{"cd <dir>", "Open a directory in clidocs (type it in the ls panel or in the console)."},
+		{"exit / quit", "Close clidocs."},
+	}},
+}}
+
+var nvimTab = helpTab{"Neovim Quick Reference", []helpSection{
+	{"Navigation", "", []helpEntry{
+		{"h j k l", "← ↓ ↑ → (or arrow keys)"},
+		{"gg", "go to top of file"},
+		{"G", "go to bottom of file"},
+		{"Ctrl+d", "scroll half page down"},
+		{"Ctrl+u", "scroll half page up"},
+		{"w / b", "next / previous word"},
+		{"0 / $", "start / end of line"},
+	}},
+	{"Editing", "", []helpEntry{
+		{"i", "insert before cursor"},
+		{"a", "insert after cursor"},
+		{"o", "new line below, insert"},
+		{"O", "new line above, insert"},
+		{"Esc", "return to Normal mode"},
+		{"u", "undo"},
+		{"Ctrl+r", "redo"},
+		{"dd", "delete (cut) line"},
+		{"yy", "yank (copy) line"},
+		{"p", "paste after cursor"},
+		{"x", "delete character"},
+	}},
+	{"Save & Quit", "", []helpEntry{
+		{":w", "save file"},
+		{":q", "quit (no unsaved changes)"},
+		{":wq / :x", "save and quit"},
+		{":q!", "quit without saving"},
+	}},
+	{"Search", "", []helpEntry{
+		{"/word", "search forward"},
+		{"n / N", "next / previous match"},
+	}},
+	{"Comment multiple lines", "", []helpEntry{
+		{"Ctrl+V", "select lines (block mode)"},
+		{":", "opens command line"},
+		{"'<,'>s/^/#", "adds # at line start"},
+	}},
+	{"Uncomment multiple lines", "", []helpEntry{
+		{"Ctrl+V", "select lines (block mode)"},
+		{":", "opens command line"},
+		{"'<,'>s/^#//", "removes # from start"},
+	}},
+	{"Visual mode", "", []helpEntry{
+		{"v", "char select"},
+		{"V", "line select"},
+		{"Ctrl+V", "block select"},
+	}},
+}}
+
+// RenderCmdHelp draws the help of the console commands, opened by the "cmd" command.
+func RenderCmdHelp(tab, scroll, termW, termH int) string {
+	v, _ := renderHelp([]helpTab{consoleCmdTab, nvimTab}, tab, scroll, min(termW-2, 90), min(termH-2, 22), " Console help — available commands", "Enter / Esc: back to console")
+	return lipgloss.NewStyle().Background(colorBg).Render(v)
+}
+
+// consoleHelpMaxScroll returns the maximum scroll of the active tab of the console help.
+func consoleHelpMaxScroll(tab, termW, termH int) int {
+	_, ms := renderHelp([]helpTab{consoleCmdTab, nvimTab}, tab, 0, min(termW-2, 90), min(termH-2, 22), "", "")
+	return ms
+}
+
+// helpPanelSize returns the width and height of the in-app help panel.
+func helpPanelSize(termW, termH int) (int, int) {
+	return min(termW-2, 106), min(termH-2, 34)
+}
+
+// RenderHelpPanel draws the floating help panel opened with "?" (it skips the
+// command-line Overview tab).
+func RenderHelpPanel(tab, scroll, termW, termH int) string {
+	w, h := helpPanelSize(termW, termH)
+	v, _ := renderHelp(helpTabs[1:], tab, scroll, w, h, " Help — available commands", "?/Esc: close")
+	return lipgloss.NewStyle().Background(colorBg).Render(v)
+}
+
+// helpPanelMaxScroll returns the maximum scroll of the active tab of the help panel.
+func helpPanelMaxScroll(tab, termW, termH int) int {
+	w, h := helpPanelSize(termW, termH)
+	_, ms := renderHelp(helpTabs[1:], tab, 0, w, h, "", "")
+	return ms
 }
 
 func runHelp() {
