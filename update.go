@@ -368,10 +368,11 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "d":
 		switch m.activePanel {
 		case panelFolders:
-			// favorite/unfavorite selected folder — use selectedFolderAbs() so
-			// inParentView (including the ~/ row) is handled correctly.
-			if m.selectedFolderAbs() != "" {
-				m.toggleFavoriteFolder()
+			// delete selected folder with confirmation — use selectedFolderAbs
+			absTarget := m.selectedFolderAbs()
+			if absTarget != "" {
+				m.folderOpTargetAbs = absTarget
+				m.modal = modalDeleteFolder
 			}
 		case panelFiles:
 			// delete selected file
@@ -381,23 +382,29 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "D":
-		switch m.activePanel {
-		case panelFolders:
-			// open favorites modal
-			if len(m.favorites) > 0 {
-				m.favCursor = 0
-				m.modal = modalFavorites
+		// multi-folder delete mode
+		if m.activePanel == panelFolders && !m.inParentView && len(m.folders) > 0 {
+			if m.multiDeleteMode {
+				// already in mode — open confirmation if any selected
+				if len(m.multiDeleteSelected) > 0 {
+					m.modal = modalMultiDeleteConfirm
+				}
+			} else {
+				m.multiDeleteMode = true
+				m.multiDeleteSelected = make(map[int]bool)
+				m.statusMsg = "Multi-delete: Space=select  D=confirm  Esc=cancel"
+				return m, clearStatusAfter(4 * time.Second)
 			}
 		}
 
 	case "f":
-		// legacy: toggle favorite (kept for compatibility)
-		if m.activePanel == panelFolders {
+		// toggle favorite on the selected folder
+		if m.activePanel == panelFolders && m.selectedFolderAbs() != "" {
 			m.toggleFavoriteFolder()
 		}
 
 	case "F":
-		// open favorites modal (legacy binding)
+		// open favorites modal
 		if m.activePanel == panelFolders && len(m.favorites) > 0 {
 			m.favCursor = 0
 			m.modal = modalFavorites
@@ -558,32 +565,6 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case "x":
-		// delete selected folder with confirmation — use selectedFolderAbs
-		if m.activePanel == panelFolders {
-			absTarget := m.selectedFolderAbs()
-			if absTarget != "" {
-				m.folderOpTargetAbs = absTarget
-				m.modal = modalDeleteFolder
-			}
-		}
-
-	case "X":
-		// multi-folder delete mode
-		if m.activePanel == panelFolders && !m.inParentView && len(m.folders) > 0 {
-			if m.multiDeleteMode {
-				// already in mode — open confirmation if any selected
-				if len(m.multiDeleteSelected) > 0 {
-					m.modal = modalMultiDeleteConfirm
-				}
-			} else {
-				m.multiDeleteMode = true
-				m.multiDeleteSelected = make(map[int]bool)
-				m.statusMsg = "Multi-delete: Space=select  Enter=confirm  Esc=cancel"
-				return m, clearStatusAfter(4 * time.Second)
-			}
-		}
-
 	case " ":
 		// select/deselect folder in multi-delete mode
 		if m.activePanel == panelFolders && m.multiDeleteMode && !m.inParentView {
@@ -610,7 +591,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.modal = modalConsole
 
 	case "?":
-		m.statusMsg = "Tab/→←: panel | ↑↓: nav | Enter: open | n: new folder | N: new subfolder | r: rename | x: delete | d: fav | D: favs | /: search | q: quit"
+		m.helpTab = 0
+		m.helpScroll = 0
+		m.modal = modalHelp
 	}
 
 	return m, nil
@@ -726,7 +709,12 @@ func doMoveFile(srcPath, destDir, destFolder string) tea.Cmd {
 	}
 }
 
+const maxStatusDuration = 2 * time.Second
+
 func clearStatusAfter(d time.Duration) tea.Cmd {
+	if d > maxStatusDuration {
+		d = maxStatusDuration
+	}
 	return tea.Tick(d, func(_ time.Time) tea.Msg {
 		return clearStatusMsg{}
 	})
@@ -1003,6 +991,24 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "enter":
 			consoleCmd := strings.TrimSpace(m.consoleInput)
 			m.consoleInput = ""
+			cmdName, cmdArg, _ := strings.Cut(consoleCmd, " ")
+			switch strings.ToLower(cmdName) {
+			case "ls":
+				m.lsTree = consoleTree(m.snippetsDir)
+				m.lsScroll, m.lsInput, m.lsMsg = 0, "", ""
+				m.modal = modalLs
+			case "cd":
+				target, err := consoleResolveCd(m.snippetsDir, cmdArg)
+				if err != nil {
+					m.consoleOutput = err.Error()
+					break
+				}
+				m.changeDir(target)
+				m.consoleOutput = "Directory: " + target
+			}
+			if cmdName = strings.ToLower(cmdName); cmdName == "ls" || cmdName == "cd" {
+				return m, nil
+			}
 			switch strings.ToLower(consoleCmd) {
 			case "time":
 				m.modal = modalTimeCalc
@@ -1017,18 +1023,19 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, aliveTick()
 			case "whoami":
 				m.modal = modalWhoami
-			case "help":
+			case "cmd":
+				m.consoleHelpTab = 0
+				m.consoleHelpScroll = 0
 				m.modal = modalHelpConsole
 			case "nvim":
-				m.modal = modalNvimGuide
-			case "clear":
-				m.consoleOutput = ""
-				m.modal = modalConsole
+				m.consoleHelpTab = 1
+				m.consoleHelpScroll = 0
+				m.modal = modalHelpConsole
 			case "exit", "quit":
-				m.modal = modalNone
+				return m, tea.Quit
 			default:
 				if consoleCmd != "" {
-					m.consoleOutput = "Unknown command: '" + consoleCmd + "'\nType 'help' for available commands."
+					m.consoleOutput = "Unknown command: '" + consoleCmd + "'\nType 'cmd' for available commands."
 				}
 			}
 		default:
@@ -1080,26 +1087,113 @@ func (m model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case modalLs:
+		switch s := msg.String(); s {
+		case "esc", "ctrl+c":
+			m.modal = modalConsole
+		case "up":
+			m.lsScroll = max(m.lsScroll-1, 0)
+		case "down":
+			m.lsScroll = min(m.lsScroll+1, max(len(m.lsTree)-lsViewRows(m.height), 0))
+		case "pgup":
+			m.lsScroll = max(m.lsScroll-10, 0)
+		case "pgdown":
+			m.lsScroll = min(m.lsScroll+10, max(len(m.lsTree)-lsViewRows(m.height), 0))
+		case "backspace", "ctrl+h":
+			if r := []rune(m.lsInput); len(r) > 0 {
+				m.lsInput = string(r[:len(r)-1])
+			}
+		case "enter":
+			name, arg, _ := strings.Cut(strings.TrimSpace(m.lsInput), " ")
+			if !strings.EqualFold(name, "cd") {
+				m.lsMsg = "Type: cd <directory>"
+				break
+			}
+			target, err := consoleResolveCd(m.snippetsDir, arg)
+			if err != nil {
+				m.lsMsg = err.Error()
+				break
+			}
+			m.changeDir(target)
+			m.modal = modalNone
+			m.statusMsg = "Directory: " + target
+			m.statusIsSuccess = true
+			return m, clearStatusAfter(2 * time.Second)
+		default:
+			if len(s) == 1 && s[0] >= 0x20 {
+				m.lsInput += s
+				m.lsMsg = ""
+			}
+		}
+		return m, nil
+
 	case modalWhoami:
 		switch msg.String() {
-		case "esc", "q", "enter":
+		case "esc", "q":
 			m.modal = modalConsole
+		case "enter":
+			m.modal = modalConsole
+			go func() {
+				_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", "https://fantodocs.github.io").Start()
+			}()
+		}
+		return m, nil
+
+	case modalHelp:
+		tabs := len(helpTabs) - 1
+		maxScroll := helpPanelMaxScroll(m.helpTab, m.width, m.height)
+		switch s := msg.String(); s {
+		case "esc", "q", "?", "ctrl+c":
+			m.modal = modalNone
+		case "tab", "right", "l":
+			m.helpTab, m.helpScroll = (m.helpTab+1)%tabs, 0
+		case "shift+tab", "left", "h":
+			m.helpTab, m.helpScroll = (m.helpTab+tabs-1)%tabs, 0
+		case "down", "j":
+			m.helpScroll = min(m.helpScroll+1, maxScroll)
+		case "up", "k":
+			m.helpScroll = max(m.helpScroll-1, 0)
+		case "pgdown", " ":
+			m.helpScroll = min(m.helpScroll+10, maxScroll)
+		case "pgup":
+			m.helpScroll = max(m.helpScroll-10, 0)
+		case "g", "home":
+			m.helpScroll = 0
+		default:
+			if len(s) == 1 && s[0] >= '1' && int(s[0]-'1') < tabs {
+				m.helpTab, m.helpScroll = int(s[0]-'1'), 0
+			}
 		}
 		return m, nil
 
 	case modalHelpConsole:
-		switch msg.String() {
+		tabs := 2 // consoleCmdTab + nvimTab
+		maxScroll := consoleHelpMaxScroll(m.consoleHelpTab, m.width, m.height)
+		switch s := msg.String(); s {
 		case "esc", "q", "enter":
 			m.modal = modalConsole
+		case "tab", "right", "l":
+			m.consoleHelpTab, m.consoleHelpScroll = (m.consoleHelpTab+1)%tabs, 0
+		case "shift+tab", "left", "h":
+			m.consoleHelpTab, m.consoleHelpScroll = (m.consoleHelpTab+tabs-1)%tabs, 0
+		case "down", "j":
+			m.consoleHelpScroll = min(m.consoleHelpScroll+1, maxScroll)
+		case "up", "k":
+			m.consoleHelpScroll = max(m.consoleHelpScroll-1, 0)
+		case "pgdown", " ":
+			m.consoleHelpScroll = min(m.consoleHelpScroll+10, maxScroll)
+		case "pgup":
+			m.consoleHelpScroll = max(m.consoleHelpScroll-10, 0)
+		case "g", "home":
+			m.consoleHelpScroll = 0
+		default:
+			if len(s) == 1 && s[0] >= '1' && int(s[0]-'1') < tabs {
+				m.consoleHelpTab, m.consoleHelpScroll = int(s[0]-'1'), 0
+			}
 		}
 		return m, nil
 
-	case modalNvimGuide:
-		switch msg.String() {
-		case "esc", "q", "enter":
-			m.modal = modalConsole
-		}
-		return m, nil
+
 
 	case modalGitSetup, modalGitConfig:
 		return m.handleGitModalKey(msg)
@@ -1889,7 +1983,11 @@ func (m model) handlePreviewSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "enter":
 		// compute hits and jump to first one
-		hits := computePreviewSearchHits(m.previewContent, m.previewSearchQuery)
+		src := m.previewContent
+		if m.previewIsMarkdown && m.previewHighlight != "" {
+			src = stripAnsi(m.previewHighlight)
+		}
+		hits := computePreviewSearchHits(src, m.previewSearchQuery)
 		m.previewSearchHits = hits
 		m.previewSearchCursor = 0
 		if len(hits) > 0 {

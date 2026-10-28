@@ -51,11 +51,12 @@ const (
 	modalNewSubfolder
 	modalDirBrowser
 	modalMoveFileBrowse
-	modalNvimGuide
 	modalAlive
 	modalSubfolderSelect   // "Select the subfolder" modal (docs workflow)
 	modalMultiDeleteConfirm // multi-folder deletion confirmation
 	modalFolderSearch      // folder search modal
+	modalHelp              // floating help panel opened with "?"
+	modalLs                // directory tree opened with the console "ls" command
 )
 
 type fileEntry struct {
@@ -116,6 +117,20 @@ type model struct {
 	previewSearchHits   []int // line indices (0-based) of matches
 	previewSearchCursor int   // which hit is currently focused
 	previewZoom         bool  // zoom: show only preview panel
+
+	// floating help panel
+	helpTab    int
+	helpScroll int
+
+	// console ls tree
+	lsTree   []string
+	lsScroll int
+	lsInput  string
+	lsMsg    string
+
+	// console help (cmd command)
+	consoleHelpTab    int
+	consoleHelpScroll int
 
 	// folder favorites
 	favorites       []string // folder names marked as favorite

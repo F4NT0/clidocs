@@ -99,7 +99,7 @@ func (s splashModel) View() string {
 		subtitle,
 		tagline,
 		"",
-		lipgloss.NewStyle().Foreground(lipgloss.Color("#f1e05a")).Render("V2.0.0"),
+		lipgloss.NewStyle().Foreground(lipgloss.Color("#f1e05a")).Render("V2.0.1"),
 		sep,
 		"",
 		cursor0+opt0Style.Render(option0),

@@ -1,6 +1,6 @@
-<table align="center"><tr><td align="center" width="9999">
+<div align="center">
 
-<img src="images/new-images/cover.png" alt="clidocs main interface" width="900">
+<img src="images/logo.png" alt="CLIDOCS" width="450">
 
 **A terminal-native snippet manager built with Go**
 
@@ -9,150 +9,78 @@
 [![Shell](https://img.shields.io/badge/Shell-PowerShell-5391fe?style=flat-square&logo=powershell)](https://learn.microsoft.com/powershell)
 [![Editor](https://img.shields.io/badge/Editor-Neovim-57a143?style=flat-square&logo=neovim)](https://neovim.io)
 
-</td></tr></table>
+Organize, preview and edit code snippets and Markdown notes in a three-panel TUI.
+
+<!-- IMAGE: uncomment and set the file name
+<img src="images/cover.png" alt="clidocs main interface" width="700">
+-->
+
+</div>
 
 ---
 
-## Table of Contents
+## 1. Installation
 
-- [Features](#features)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Splash Screen](#splash-screen)
-- [Interface](#interface)
-- [Keyboard Shortcuts](#keyboard-shortcuts)
-- [Folder Management](#folder-management)
-- [Subfolder Navigation](#subfolder-navigation)
-- [Folder Search](#folder-search)
-- [Snippets Management](#snippets-management)
-- [Preview Panel](#preview-panel)
-  - [Keyword Colorization](#keyword-colorization)
-  - [Icon Shortcuts](#icon-shortcuts)
-- [Folder Favorites](#folder-favorites)
-- [Snippets Directory](#snippets-directory)
-- [Neovim Integration](#neovim-integration)
-- [File Import](#file-import)
-- [GitHub Sync](#github-sync)
-- [Console Easter Egg](#console-easter-egg)
-- [Supported Languages](#supported-languages)
-- [Project Structure](#project-structure)
-- [Dependencies](#dependencies)
-
----
-
-## Features
-
-<details>
-<summary><strong>Click to expand full feature list</strong></summary>
-
-[![TUI](https://img.shields.io/badge/Three--panel%20TUI-Folders%20%7C%20Snippets%20%7C%20Preview-30363d?style=flat-square)](.)
-[![Highlight](https://img.shields.io/badge/Syntax%20Highlighting-GitHub%20Dark-161b22?style=flat-square&logo=github)](.)
-[![Neovim](https://img.shields.io/badge/Edit%20with-Neovim%20%7C%20VS%20Code-57a143?style=flat-square&logo=neovim)](.)
-[![Git](https://img.shields.io/badge/Sync%20to-GitHub-f05033?style=flat-square&logo=git)](.)
-[![Import](https://img.shields.io/badge/Import-Files%20from%20anywhere-e8912d?style=flat-square)](.)
-
-- **Three-panel layout** — Folders / Snippets / Preview, fully keyboard-driven
-- **Splash screen** — ASCII art welcome screen when launching without a CLI argument; choose default dir or browse for another
-- **Subfolder navigation** — folders with subfolders show a `›` indicator; press `Enter` to enter **parent-view mode** — the Folders panel shows `~/` (direct snippets of the parent) plus each subfolder; navigate with `↑↓` and press `Enter` on a subfolder to dive deeper; press `←` to go back
-- **Create subfolders** — press `N` in the Folders panel to create a subfolder inside the selected folder
-- **Folder search** — press `/` in the Folders panel to filter folders by name in real-time
-- **Rename folders** — press `R` in the Folders panel to rename any folder inline
-- **Delete folders** — press `D` in the Folders panel to delete a folder and all its contents (with confirmation)
-- **Rename snippets** — press `r` in the Snippets panel to rename the selected file
-- **Syntax highlighting** powered by [Chroma](https://github.com/alecthomas/chroma) with the GitHub Dark theme
-- **Language badges** — each file shows its extension label in the official language color
-- **Full file path** — the Preview panel shows the complete absolute path in orange below the file title
-- **Open in Neovim or VS Code** — press `e` (Neovim) or `v` (VS Code) from anywhere to open the previewed file
-- **Open file location** — press `o` in the Preview panel to open the file's folder in Windows Explorer
-- **Virtual scroll** — Folders and Snippets panels scroll smoothly; cursor always stays visible
-- **Folder favorites** — press `f` to favorite/unfavorite; press `F` for the Favorites jump modal
-- **Return to home directory** — press `H` to return to the original snippets directory
-- **Copy preview to clipboard** — press `c` in Preview to copy the entire file content
-- **Inline file search** — press `/` in Snippets to filter files by name in real-time
-- **Preview word search** — press `/` in Preview to search for any word; type freely including `n`; `n`/`N` cycle hits only after `Enter`
-- **Line numbers** — toggle with `L`; matched search lines highlighted in orange / green
-- **Modern folder picker** — uses Windows Explorer-style `IFileOpenDialog` when changing directory
-- **Contextual status bar** — hints update automatically based on active panel
-- **File import** — native Windows multi-select file picker
-- **Delete with confirmation** — press `d` to delete a snippet safely
-- **Move between folders** — press `m` to move a snippet to another folder
-- **GitHub sync** — push your snippets to a remote repository with a single key press
-- **TUI Installer / Uninstaller** — `clidocs --install` (or `clidocs-installer.exe`) downloads the latest GitHub release and installs it; `clidocs --uninstall` removes it completely
-- **Interactive help** — `clidocs --help` shows tabbed documentation of every part of the system
-- **CLI directory argument** — run `clidocs`, `clidocs .`, or `clidocs <path>` to open any directory
-- **Console easter egg** — press `:` from any panel to open the `Cmdline` console with commands: `time`, `whoami`, `nvim`, `help`, `clear`
-- **Work hours calculator** — `time` command computes coffee break, lunch, normal exit and max exit times
-- **Neovim quick reference** — `nvim` console command opens a two-column cheat-sheet with navigation, editing, save/quit, search, and multi-line comment/uncomment instructions
-- **Error modal word-wrap** — long error messages are automatically broken into multiple lines so they never overflow the terminal width
-- **Preview line truncation** — lines longer than the panel width are hard-truncated with ANSI-safe clipping, preventing long files from breaking the TUI layout
-- **Preview panel full-width** — markdown and code previews now use the full available panel width at any terminal size
-- **Markdown keyword colorization** — `TODO` (blue), `DOING`/`WORKING` (yellow), `DONE`/`FINISH` (green +  icon), `FAIL`/`NOT` (red +  icon) are automatically colored when rendered
-- **Markdown icon shortcodes** — `:check:` (), `:x:` (), `:work:` () are replaced with colored Nerd Font icons at render time
-- **Dark theme** — unified `#0D0D0D` background, GitHub-inspired palette
-
-</details>
-
----
-
-## Requirements
+### Requirements
 
 | Requirement | Notes |
 |---|---|
-| **Go 1.24+** | To build from source |
 | **Windows 11 + PowerShell** | Primary supported platform |
-| **Neovim (`nvim`)** | Must be in `PATH` to edit files with `e` |
-| **VS Code (`code`)** | Must be in `PATH` to open files with `v` |
-| **Windows Terminal (`wt`)** | Recommended — editor opens in a new tab |
-| **Git** | Required for the GitHub sync feature |
-| **JetBrains Nerd Font** (or any Nerd Font) | For folder icons (``) in the terminal |
+| **Neovim (`nvim`)** | Must be in `PATH` to edit files |
+| **Git** | Only for the Git sync feature |
+| **A Nerd Font** (e.g. JetBrains Mono Nerd Font) | Folder and language icons |
+| **Go 1.24+** | Only to build from source |
 
----
+### Option 1 - One line (recommended)
 
-## Installation
+Run in PowerShell. It downloads `clidocs-installer.exe` from the latest GitHub release into a temporary folder, runs it (the installer downloads and installs `clidocs.exe` from the latest release) and deletes the temporary installer:
 
-clidocs is installed, updated and removed entirely through its own commands. The installer downloads the **latest GitHub release** (`clidocs.exe` from [F4NT0/clidocs](https://github.com/F4NT0/clidocs/releases)), verifies its SHA-256 checksum, copies it to `%LOCALAPPDATA%\clidocs`, adds that folder to your user `PATH` and creates the `clidocs` command in PowerShell.
+```powershell
+$i="$env:TEMP\clidocs-installer.exe"; iwr https://github.com/F4NT0/clidocs/releases/latest/download/clidocs-installer.exe -OutFile $i; & $i; Remove-Item $i -Force
+```
 
-### Option 1 — Installer executable
+> The latest release must have `clidocs-installer.exe` attached next to `clidocs.exe`.
 
-Download `clidocs-installer.exe` and run it (or build it yourself):
+### Option 2 - Installer executable
+
+Download `clidocs-installer.exe` from the [releases page](https://github.com/F4NT0/clidocs/releases) and run it, or build it:
 
 ```powershell
 go build -o clidocs-installer.exe ./cmd/clidocs-installer
 .\clidocs-installer.exe
 ```
 
-### Option 2 — From the cloned repository
+### Option 3 - From the cloned repository
 
 ```powershell
 git clone https://github.com/F4NT0/clidocs.git
 cd clidocs
-
-# Install through the repository (no build step needed)
 go run . --install
 ```
 
-> `go run . --install` runs the same installer TUI. It installs the **latest published release** from GitHub, not the local working tree. To use your own build, run `go build -o clidocs.exe .` and execute it directly.
+> `go run . --install` runs the same installer and installs the **latest published release**, not the local working tree.
 
-### Option 3 — From an installed clidocs
+### Option 4 - From an installed clidocs
 
 ```powershell
 clidocs --install      # install or update to the latest release
 clidocs --install -y   # skip the confirmation prompt
 ```
 
-### Installer screen
+### What the installer does
 
-The installer shows the ASCII logo, asks for confirmation and then runs each step with its own progress bar (blue while working, green when finished):
+1. Finds the latest release on GitHub
+2. Downloads `clidocs.exe`
+3. Verifies the SHA-256 checksum
+4. Installs it in `%LOCALAPPDATA%\clidocs`
+5. Adds that folder to the user `PATH`
+6. Creates the `clidocs` command in PowerShell
 
-1. Find the latest release on GitHub
-2. Download `clidocs.exe`
-3. Verify download integrity (SHA-256)
-4. Install program files into `%LOCALAPPDATA%\clidocs`
-5. Add clidocs to the user `PATH`
-6. Create the `clidocs` command in PowerShell
+Open a **new** terminal afterwards and type `clidocs`. Running the installer again updates an existing install.
 
-If clidocs is already installed, the old executable is replaced, so the same command also updates it. After it finishes, open a **new** terminal and type `clidocs`.
+<p align="center">
+  <!-- <img src="images/installer.png" alt="Installer" width="550"> -->
+</p>
 
 ### Uninstall
 
@@ -161,769 +89,452 @@ clidocs --uninstall      # asks for confirmation
 clidocs --uninstall -y   # skip the confirmation prompt
 ```
 
-The uninstaller finds every `clidocs.exe` on your `PATH` (plus `%LOCALAPPDATA%\clidocs`), removes the PowerShell alias, removes their folders from the user `PATH` and deletes the executables. Folders are deleted only when they end up empty. **Your snippets are never deleted.**
+Removes the PowerShell alias, the `PATH` entries and every `clidocs.exe` found on `PATH`. Folders are removed only when empty. **Your snippets are never deleted.**
 
-### Command-line options
+<p align="center">
+  <!-- <img src="images/uninstaller.png" alt="Uninstaller" width="550"> -->
+</p>
+
+---
+
+## 2. Commands
 
 | Command | Description |
 |---|---|
-| `clidocs` | Start with the splash screen |
-| `clidocs .` / `clidocs <path>` | Open a directory directly |
+| `clidocs` | Start with the splash screen (default snippets directory or browse for another) |
+| `clidocs .` | Open the current directory as the snippets root |
+| `clidocs <path>` | Open a specific directory, skipping the splash screen |
 | `clidocs --help` | Interactive help with one tab per topic (`-h`, `help`) |
-| `clidocs --version` | Print the version (`-v`, `version`) |
-| `clidocs --install` | Install / update from the latest GitHub release |
+| `clidocs --version` | Print the installed version (`-v`, `version`) |
+| `clidocs --install` | Install or update from the latest GitHub release |
 | `clidocs --uninstall` | Remove clidocs from the computer |
 
-> **Snippets are stored in:** `%USERPROFILE%\clidocs_snippets\`  
-> The directory is created automatically on first run. Each sub-folder becomes a category in the Folders panel.
+<p align="center">
+  <!-- <img src="images/splash.png" alt="Splash screen" width="550"> -->
+</p>
 
-> **Snippets are stored in:** `%USERPROFILE%\clidocs_snippets\`  
-> The directory is created automatically on first run. Each sub-folder becomes a category in the Folders panel.
-
----
-
-## Usage
-
-```powershell
-# Open default snippets directory (~\clidocs_snippets)
-clidocs
-
-# Open the current working directory as snippets root
-clidocs .
-
-# Open a specific directory
-clidocs C:\Users\You\my-snippets
-clidocs .\docs\snippets
-```
+<p align="center">
+  <!-- <img src="images/help.png" alt="clidocs --help" width="550"> -->
+</p>
 
 ---
 
-## Splash Screen
+## 3. Interface
 
-When you run `clidocs` **without any arguments**, an ASCII art welcome screen is shown:
+### Start screen
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/screenshot-main.png" alt="main screen" width="600">
-</td></tr></table>
+This is the start screen of the program, shown when you run the `clidocs` command without arguments. Use `Up` / `Down` to choose between opening the default snippets directory or browsing for another directory, `Enter` to confirm and `Ctrl+C` to quit.
 
-> The splash screen is **skipped** when you pass a path argument: `clidocs .` or `clidocs <path>`.
----
+<p align="center">
+  <img src="images/interface.png" alt="clidocs start screen" width="550">
+</p>
 
-## Interface
+### Main screen
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/visualization.png" alt="clidocs interface" width="900">
-</td></tr></table>
+This is the main screen of the program, shown after you choose a directory. It is empty on first use: press `n` in the Folders panel to create your first folder. The bar at the bottom lists the shortcuts of the active panel.
 
-### Panel descriptions
+The screen is split into three panels. `Tab` moves between them and the active panel has a blue border.
 
-| Panel | Description |
+| Panel | What it does |
 |---|---|
-| **Folders** | Categories for your snippets. Selected folder shown in blue with `>` arrow. Folders with subfolders show a `›` indicator. Press `←` to go back when inside a subfolder. |
-| **Snippets** | Files inside the selected folder. Selected file shown in green. Extension badge colored by language. |
-| **Preview** | Syntax-highlighted content of the selected file. Shows full file path in orange. Scrollable. |
+| **Folders** | Lists the folders and subfolders of the snippets directory. Folders with subfolders show a `>` marker; favorites show a star. |
+| **Files** | Lists the files of the selected folder with the language tag and the age of each file. |
+| **Preview** | Shows the selected file with syntax highlighting, or rendered Markdown (tables, lists, TODO colors and icons). |
+
+<p align="center">
+  <img src="images/main-screen.png" alt="Main screen with the three panels" width="700">
+</p>
 
 ---
 
-## Keyboard Shortcuts
+## 4. Panels and shortcuts
 
-> Click each section to expand the shortcuts for that panel.
-
-<details>
-<summary><strong>🗂️ Folders Panel</strong></summary>
+### Global shortcuts
 
 | Key | Action |
 |---|---|
-| `↑` / `k` | Previous folder |
-| `↓` / `j` | Next folder |
-| `Enter` | Open folder → enters **parent-view** (shows `~/` + subfolders when folder has subfolders, otherwise navigates directly) |
-| `←` | **Go back** to parent directory (when inside a subfolder) |
-| `n` | Create new folder |
-| `N` | Create new **subfolder** inside the selected folder |
-| `/` | **Search / filter** folders by name |
-| `R` | **Rename** selected folder |
-| `D` | **Delete** selected folder and all its contents (confirmation required) |
+| `Tab` | Next panel |
+| `s` | Jump to the Folders panel |
+| `g` | Sync snippets with Git |
+| `G` | Edit the Git configuration |
+| `:` | Open the command console |
+| `q` / `Ctrl+C` | Quit |
+
+### Folders panel
+
+Shows the folders of the snippets directory. Moving the cursor updates the Files and Preview panels. `Enter` on a folder with subfolders enters **parent-view**: the first row is `~/` (the files of the folder itself) followed by one row per subfolder. `Left` goes back one level.
+
+<p align="center">
+  <img src="images/folders-panel.png" alt="Folders panel" width="700">
+</p>
+
+| Key | Action |
+|---|---|
+| `Up` / `k`, `Down` / `j` | Move the cursor |
+| `Enter` / `Right` / `l` | Open the folder (enters parent-view if it has subfolders) |
+| `Left` / `h` | Go back one level |
+| `n` | New folder |
+| `N` | New subfolder inside the selected folder |
+| `r` | Rename the selected folder |
+| `d` | Delete the selected folder (confirmation required) |
+| `D` | Multi-delete mode: `Space` selects, `D` confirms, `Esc` cancels |
+| `/` | Search folders recursively |
 | `f` | Favorite / unfavorite the selected folder |
-| `F` | Open **Favorites modal** |
-| `H` | Return to original snippets directory |
-| `o` | Snippets directory info |
-| `Tab` / `→` | Next panel |
-| `q` / `Ctrl+C` | Quit |
+| `F` | Open the favorites list |
+| `H` | Return to the original snippets directory |
+| `o` | Show information about the snippets directory |
 
-</details>
+### Files panel
 
-<details>
-<summary><strong>📄 Snippets Panel</strong></summary>
+Shows the files of the selected folder. The title shows how many snippets there are. Each row has the language tag, the file name and the folder with the file age.
 
-| Key | Action |
-|---|---|
-| `↑` / `k` | Previous file |
-| `↓` / `j` | Next file |
-| `Enter` | Open selected file in Neovim |
-| `/` | **Inline search** — filter files by name |
-| `n` | Create new file |
-| `r` | **Rename** selected file |
-| `m` | Move file to another folder |
-| `c` | Import file from Windows file picker |
-| `d` | Delete selected file (with confirmation) |
-| `Tab` | Next panel |
-
-</details>
-
-<details>
-<summary><strong>🔍 Snippets Inline Search Mode (<code>/</code> in Snippets)</strong></summary>
+<p align="center">
+  <img src="images/files-panel.png" alt="Files panel" width="700">
+</p>
 
 | Key | Action |
 |---|---|
-| Type | Filter files in real-time (supports `*.go` glob) |
-| `↑` / `↓` | Navigate filtered results — preview updates live |
-| `Enter` | Confirm selection, exit search |
-| `Esc` | Cancel search, restore full list |
+| `Up` / `k`, `Down` / `j` | Move the cursor (the Preview updates live) |
+| `Enter` / `e` | Open the file in Neovim |
+| `n` | New file |
+| `r` | Rename the selected file |
+| `d` | Delete the selected file (confirmation required) |
+| `m` | Move the file to another folder |
+| `c` | Import a file from anywhere with the file picker |
+| `/` | Filter files by name (supports globs such as `*.go`) |
 
-</details>
+### Preview panel (snippet)
 
-<details>
-<summary><strong>👁️ Preview Panel</strong></summary>
+Shows the content of the selected file. Code is highlighted with the GitHub Dark theme and Markdown is rendered with styled headings, lists and tables.
+
+<p align="center">
+  <img src="images/preview-panel.png" alt="Preview panel" width="700">
+</p>
 
 | Key | Action |
 |---|---|
-| `↑` / `k` | Scroll up |
-| `↓` / `j` | Scroll down |
+| `Up` / `k`, `Down` / `j` | Scroll |
+| `c` | Copy the whole file to the clipboard |
+| `e` | Edit the file in Neovim |
+| `o` | Open the file location in Windows Explorer |
+| `z` | Toggle zoom (preview fills the screen) |
 | `L` | Toggle line numbers |
-| `/` | **Word search** in current file |
-| `c` | **Copy** entire file content to clipboard |
-| `e` | Open file in **Neovim** |
-| `v` | Open file in **VS Code** |
-| `o` | Open file's **folder in Explorer** |
-| `Tab` | Next panel |
-| `q` / `Ctrl+C` | Quit |
-
-</details>
-
-<details>
-<summary><strong>🔎 Preview Word Search Mode (<code>/</code> in Preview)</strong></summary>
-
-| Key | Action |
-|---|---|
-| Type (any key) | Appends to search query — **including `n`** |
-| `Enter` | Find all matches — matched lines highlighted |
-| `n` | Jump to **next** match (only after `Enter` has been pressed) |
-| `N` | Jump to **previous** match (only after `Enter` has been pressed) |
-| `Esc` | Close search |
-
-</details>
-
-<details>
-<summary><strong>📁 Subfolder Navigator Modal</strong></summary>
-
-| Key | Action |
-|---|---|
-| `↑` / `k` | Previous entry |
-| `↓` / `j` | Next entry |
-| `Enter` on **directory** | **Set as Folders panel root** — browse its contents directly |
-| `Enter` on **file** | Load file in Preview panel |
-| `Backspace` | Go up one level (or close modal if at root) |
-| `Esc` | Close modal |
-
-</details>
-
-<details>
-<summary><strong>🌐 Global Keys</strong></summary>
-
-| Key | Action |
-|---|---|
-| `Tab` / `→` / `←` | Switch panels |
-| `s` | Jump to Folders panel |
-| `g` | Sync to GitHub |
-| `G` | Edit GitHub config |
-| `o` | Snippets directory info (non-Preview panels) |
-| `:` | Open **Console** easter egg |
-| `q` / `Ctrl+C` | Quit |
-
-</details>
-
-<details>
-<summary><strong>🖥️ Console (easter egg — press <code>:</code>)</strong></summary>
-
-| Command | Action |
-|---|---|
-| `time` | Work hours calculator — enter start time, get exit times |
-| `whoami` | Show custom user info |
-| `nvim` | **Neovim Quick Reference** — two-column cheat-sheet with all basic commands |
-| `help` | Show all shortcuts and commands |
-| `clear` | Clear console output |
-| `exit` / `q` | Close console |
-
-</details>
+| `/` | Search a word in the file; `Enter` finds matches, then `n` / `N` jump between them |
 
 ---
 
-## Folder Management
+## 5. How to use
 
-### Create a folder
+<p align="center">
+  <img src="images/folder-panel-usage.png" alt="Folder panel usage" width="200">
+</p>
 
-1. Focus the **Folders** panel
-2. Press `n` → type the folder name → `Enter` to confirm, `Esc` to cancel
+### Create folders and subfolders
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/create-new-folder.png" alt="Create folder" width="750">
-</td></tr></table>
+1. Focus the **Folders** panel.
+2. Press `n`, type the name and press `Enter` to create a folder.
+3. Select a folder and press `N` to create a **subfolder** inside it.
+4. `Esc` cancels.
+
+<p align="center">
+  <img src="images/create-folder.png" alt="Create folder" width="550">
+</p>
+
+To create a subfolder, select the parent folder and press `N`. The dialog shows which folder the new subfolder will be created in (`Inside: Folder1/`). Folders that contain subfolders show a `>` marker in the list.
+
+<p align="center">
+  <img src="images/create-subfolder.png" alt="Create subfolder" width="550">
+</p>
 
 ### Rename a folder
 
-1. Focus the **Folders** panel and navigate to the folder
-2. Press `R` — a modal appears with the current name pre-filled
-3. Edit the name → `Enter` to confirm, `Esc` to cancel
-4. Favorites referencing the folder are updated automatically
+The rename option is only available when the **Folders** panel is focused (use `s` or `Tab` to get there).
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/rename-folder.png" alt="Rename folder" width="750">
-</td></tr></table>
+1. Select the folder in the Folders panel.
+2. Press `r`. A dialog shows the current name (`Current: Folder1/`) and an input pre-filled for the new name.
+3. Type the new name and press `Enter` to confirm, or `Esc` to cancel.
 
-### Delete a folder
+<p align="center">
+  <img src="images/rename-folder.png" alt="Rename folder" width="550">
+</p>
 
-1. Focus the **Folders** panel and navigate to the folder
-2. Press `D` — a confirmation modal appears
-3. Press `Enter` or `y` to delete, `Esc` or `n` to cancel
+### Favorite a folder
 
-> **Warning:** Deletion is permanent and recursive — all files and subfolders inside are removed from disk.
+Favorites are only available when the **Folders** panel is focused.
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/delete-folder.png" alt="Delete folder" width="750">
-</td></tr></table>
+1. Select the folder in the Folders panel.
+2. Press `f`. A star appears next to the folder name.
+3. Press `f` again on the same folder to remove the star.
+4. Press `F` (capital) to open the favorites list.
 
----
+<p align="center">
+  <img src="images/favorite-folder.png" alt="Favorite folder" width="400">
+</p>
 
-## Subfolder Navigation
+In the favorites list use `Up` / `Down` to navigate, `Enter` to go to the folder, `o` to open it in Explorer, `f` to remove it from the favorites and `Esc` to close.
 
-Folders that contain subfolders display a `›` indicator next to their name.
+<p align="center">
+  <img src="images/favorites-list.png" alt="Favorites list" width="700">
+</p>
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/subfolder-navigation.png" alt="Subfolder indicator" width="750">
-</td></tr></table>
+### Delete folders
 
-### Browsing subfolders
+Deleting folders is only available when the **Folders** panel is focused. Deleting a folder removes everything inside it.
 
-1. Navigate to a folder with the `›` marker in the Folders panel
-2. The Snippet panel already shows the **direct snippets** of that folder
-3. Press `Enter` — the app enters **parent-view mode**:
-   - The Folders panel title changes to the folder name + `← back`
-   - The first row is `~/` — selecting it shows the folder's own snippets
-   - Each subsequent row is a subfolder — selecting it shows its snippets
-4. Press `Enter` on a **subfolder row**:
-   - If it has no sub-subfolders → navigates directly into it
-   - If it also has children → enters parent-view recursively
-5. Press `←` to exit parent-view and return to the previous level
+- **One folder:** select it and press `d`. A dialog asks for confirmation and warns that the folder and all its contents will be deleted and that this cannot be undone. Press `Enter` or `y` to delete, or `Esc` or `n` to cancel.
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/subfolder-snippets.png" alt="Subfolder snippets" width="750">
-</td></tr></table>
+<p align="center">
+  <img src="images/delete-folder.png" alt="Delete folder" width="550">
+</p>
 
-### Going back up
+- **Several folders:** press `D` to enter multi-delete mode, move with `Up` / `Down`, press `Space` to select or deselect each folder, press `D` again to confirm and `Esc` to cancel. The selected folders are highlighted in red. A dialog shows how many folders will be deleted and warns that this cannot be undone. Press `Enter` or `y` to delete, or `Esc` or `n` to cancel.
 
-When inside parent-view or a nested subfolder, the Folders panel title shows **`← back`**.  
-Press `←` (left arrow) on the **Folders panel** to go back to the previous level.
+<p align="center">
+  <img src="images/delete-multiple-folders.png" alt="Delete multiple folders" width="550">
+</p>
 
-### Creating a subfolder
+<p align="center">
+  <img src="images/files-panel-usage.png" alt="Files panel usage" width="200">
+</p>
 
-1. Navigate to any folder in the Folders panel
-2. Press `N` — a modal asks for the new subfolder name
-3. Press `Enter` to create, `Esc` to cancel
+### Create files inside a folder
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/subfolder-creation.png" alt="Subfolder creation" width="750">
-</td></tr></table>
+1. Select a folder and focus the **Files** panel with `Tab`.
+2. Press `n`.
+3. Type the file name (without extension) and press `Enter` or `Tab`.
+4. Type the extension (for example `go`, `py`, `md`) and press `Enter`. The file is created and opened in Neovim.
 
----
+<p align="center">
+  <img src="images/create-file.png" alt="Create file" width="550">
+</p>
 
-## Folder Search
+### Edit files
 
-1. Focus the **Folders** panel
-2. Press `/` — the title bar changes to `/ query█`
-3. Type to filter — only folders matching the query are shown
-4. Use `↑`/`↓` to navigate filtered results
-5. Press `Enter` to confirm selection and switch to that folder's snippets
-6. Press `Esc` to cancel and restore the full list
+Press `Enter` or `e` on a file (Files panel) or `e` (Preview panel) to open it in Neovim. Save with `:w`, quit with `:q`, or both with `:wq`. When you return to clidocs the preview is refreshed. In the console, the `nvim` command shows a Neovim quick reference.
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/search-folders.png" alt="Folder search" width="200">
-</td></tr></table>
+<p align="center">
+  <img src="images/edit-file.png" alt="Editing a file in Neovim" width="550">
+</p>
 
----
+### Snippet panel after saving
 
-## Snippets Management
+After you save and quit Neovim (`:wq`), clidocs shows the result right away. The Files panel lists the snippet with its language tag, folder and age, and the Preview panel (the snippet panel) shows the saved content: Markdown is rendered with styled text and links, and code files are syntax highlighted. From here you can scroll, search (`/`), copy (`c`), edit again (`e`) or open the folder (`o`).
 
-### Create a file
+<p align="center">
+  <img src="images/snippet-panel.png" alt="Snippet panel after saving the file" width="700">
+</p>
 
-1. Focus the **Snippets** panel (with a folder selected)
-2. Press `n`
-3. **Step 1** — Enter the file name (without extension) → `Enter` or `Tab`
-4. **Step 2** — Enter the extension (e.g. `go`, `py`, `md`) → `Enter` to create and open
+### Rename a file
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/create-new-file.png" alt="Create file" width="750">
-</td></tr></table>
+The rename option is only available when the **Files** panel is focused (use `Tab` to get there).
 
+1. Select the file in the Files panel.
+2. Press `r`. A dialog shows the current name (`Current: File1.md`) and an input pre-filled with it, extension included.
+3. Type the new name and press `Enter` to confirm, or `Esc` to cancel.
 
-### Rename a snippet
+<p align="center">
+  <img src="images/rename-file.png" alt="Rename file" width="550">
+</p>
 
-1. Focus the **Snippets** panel and navigate to the file
-2. Press `r` — a modal appears with the current filename pre-filled
-3. Edit the name → `Enter` to confirm, `Esc` to cancel
+### Move a file
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/rename-file.png" alt="Rename file" width="750">
-</td></tr></table>
+Moving files is only available when the **Files** panel is focused.
 
-### Delete a file
+1. Select the file in the Files panel.
+2. Press `m`. A dialog shows the file name and the list of folders and subfolders you can move it to.
+3. Use `Up` / `Down` to choose the destination folder. The last entry, `Browse external folder...`, lets you pick a folder outside the snippets directory.
+4. Press `Enter` to move the file, or `Esc` to cancel.
 
-1. Focus the **Snippets** panel and navigate to the file
-2. Press `d` — a confirmation modal shows the filename
-3. Press `Enter` or `y` to delete, `Esc` or `n` to cancel
+<p align="center">
+  <img src="images/move-file.png" alt="Move file" width="550">
+</p>
 
-> **Warning:** Deletion is permanent.
+### Import a file
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/delete-file.png" alt="Delete file" width="750">
-</td></tr></table>
+Importing files is only available when the **Files** panel is focused.
 
-### Move a file to another folder
+1. Select the folder that will receive the files and focus the Files panel.
+2. Press `c`. clidocs opens the Windows file picker (the Windows file explorer window) and shows the message `Opening file picker...`.
+3. In the picker, select one or more files and confirm. They are copied into the current folder (`Folder1` in the example).
 
-1. Focus the **Snippets** panel and navigate to the file
-2. Press `m` (requires at least 2 folders)
-3. A modal lists all other folders — navigate with `↑↓`
-4. Press `Enter` to move the file
+<p align="center">
+  <img src="images/import-file.png" alt="Import file" width="550">
+</p>
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/move-file.png" alt="Move file" width="750">
-</td></tr></table>
+### Delete files
 
-### Inline File Search
+Deleting files is only available when the **Files** panel is focused.
 
-1. Focus the **Snippets** panel
-2. Press `/` — the title bar changes to a search input `/ query█`
-3. Type to filter — matches update instantly (`*.go`, `docker`, `main.go`)
-4. Use `↑`/`↓` to navigate filtered results — **preview updates live**
-5. Press `Enter` to confirm selection, `Esc` to cancel
+1. Select the file in the Files panel.
+2. Press `d`. A dialog asks `Are you sure you want to delete:` and shows the file name.
+3. Press `Enter` or `y` to delete, or `Esc` or `n` to cancel.
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/search-filter-snippets.png" alt="Inline file search" width="750">
-</td></tr></table>
+<p align="center">
+  <img src="images/delete-file.png" alt="Delete file" width="550">
+</p>
 
 ---
 
-## Preview Panel
+<p align="center">
+  <img src="images/search-system.png" alt="Search system" width="200">
+</p>
 
-The Preview panel shows the syntax-highlighted content of the selected file with additional information and actions.
+The `/` key starts a search in every panel. What it searches depends on which panel is focused.
 
-### File path indicator
+### Folder search
 
-When a file is loaded — either from the Snippets panel or via the Subfolder Navigator — the **full absolute path** is displayed in orange below the file title:
+Available when the **Folders** panel is focused.
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/file-path-indicator.png" alt="File path indicator" width="750">
-</td></tr></table>
+1. Press `/`. A search dialog opens and lists the folders, including subfolders.
+2. Type part of a folder name. The list is filtered while you type.
+3. Use `Up` / `Down` to choose a result and press `Enter` to jump to that folder.
+4. Press `Esc` to close the search without changing anything.
 
-### Open actions
+<p align="center">
+  <img src="images/folder-search.png" alt="Folder search" width="550">
+</p>
 
-| Key | Action |
-|---|---|
-| `e` | Open file in **Neovim** (new Windows Terminal window) |
-| `v` | Open file in **VS Code** (`code <path>`) |
-| `o` | Open the file's **containing folder** in Windows Explorer |
+### File search
 
-### Word Search
+Available when the **Files** panel is focused.
 
-1. Press `/` — a search bar appears below the file title
-2. Type the word or phrase you want to find
-3. Press `Enter` — all matching lines are highlighted:
-   - **Orange `▶`** — current hit
-   - **Green `•`** — other matches
-4. Press `n` / `N` to cycle through hits
-5. Press `Esc` to close
+1. Press `/`. A search bar replaces the panel title.
+2. Type part of a file name. The file list is filtered while you type and globs such as `*.go` are supported.
+3. Use `Up` / `Down` to move through the results. The Preview panel updates live.
+4. Press `Enter` to keep the selection, or `Esc` to cancel and restore the full list.
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/search-word-visualization.png" alt="Preview word search" width="750">
-</td></tr></table>
+<p align="center">
+  <img src="images/file-search.png" alt="File search" width="400">
+</p>
 
-### Line Numbers
+### Preview search
 
-Press `L` to toggle line numbers. When active, matched search lines show their number in orange (current) or green (other hits).
+Available when the **Preview** panel is focused and a file is loaded. It searches words inside the file content.
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/Show_Line_Numbers.png" alt="Line numbers" width="750">
-</td></tr></table>
+1. Press `/`. A search bar appears.
+2. Type the word or phrase, including the letter `n`, and press `Enter`. Every match is shown in **bold green** inside the text. In code files the lines with matches are also marked: the current one with an orange arrow and the others with a green dot.
+3. After the first `Enter`, press `n` to jump to the next match and `N` to jump to the previous one.
+4. Press `Esc` to close the search.
 
-### Markdown Preview
-
-Files with a `.md` or `.markdown` extension are rendered using **[glamour](https://github.com/charmbracelet/glamour)** — the same GitHub Dark style used in terminal markdown viewers:
-
-| Markdown | Rendered as |
-|---|---|
-| `# Heading` | Bold colored heading |
-| `**bold**` | **Bold** text |
-| `*italic*` | *Italic* text |
-| `` `code` `` | Inline code block |
-| ` ```go ` fenced block | Syntax-highlighted code |
-| `- list item` | Bulleted list |
-| `> blockquote` | Quoted block |
-| `[link](url)` | Styled link |
-| `---` | Horizontal rule |
-
-A **`[MD]`** badge appears in the preview panel title when a markdown file is active.
-
-> **Note:** LaTeX math formulas (`$x^2$`, `$$\int$$`) are not rendered — the terminal has no math engine. Write formulas as ASCII (`x²`) or use fenced code blocks (` ```math `).
-
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/markdown-preview.png" alt="Markdown preview" width="750">
-</td></tr></table>
-
-### Keyword Colorization
-
-Status keywords written anywhere in a markdown file are automatically colored when rendered in the Preview panel. No special syntax required — just write the word in uppercase.
-
-| Keyword | Color | Notes |
-|---|---|---|
-| `TODO` | Soft blue | Task not started |
-| `DOING` / `WORKING` | Yellow | Task in progress |
-| `DONE` / `FINISH` | Soft green | Task completed — also shows a `nf-cod-pass_filled` icon before the word |
-| `FAIL` / `NOT` | Red | Task failed — also shows a `nf-fa-times_circle` icon before the word |
-
-> **Requires a Nerd Font** in your terminal for the icons to render correctly (e.g. JetBrainsMono Nerd Font).
-
-<!-- screenshot: keyword colorization in action -->
-<!-- <img src="images/markdown-keywords.png" alt="Keyword colorization" width="750"> -->
-
-### Icon Shortcuts
-
-You can embed Nerd Font icons inline in any markdown file using shortcode syntax. They are replaced with colored icons at render time.
-
-| Shortcode | Icon | Color | Nerd Font glyph |
-|---|---|---|---|
-| `:check:` | `nf-fa-circle_check` | Green | `\uf05d` |
-| `:x:` | `nf-fa-times_circle` | Red | `\uf52f` |
-| `:work:` | `nf-cod-warning` | Yellow | `\uea6c` |
-
-**Example:**
-
-```markdown
-- :check: Deploy to production
-- :x: Rollback failed — investigate logs
-- :work: Pipeline running, waiting for results
-```
-
-<!-- screenshot: icon shortcodes rendered -->
-<!-- <img src="images/markdown-icons.png" alt="Icon shortcodes" width="750"> -->
-
-### Copy to clipboard
-
-Press `c` in the Preview panel to copy the entire file content to the system clipboard. A green status message confirms the action.
-
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/copy-to-clipboard.png" alt="Copy to clipboard" width="750">
-</td></tr></table>
+<p align="center">
+  <img src="images/preview-search.png" alt="Preview search" width="550">
+</p>
 
 ---
 
-## Folder Favorites
+<p align="center">
+  <img src="images/clidocs-console.png" alt="clidocs Console" width="200">
+</p>
 
-Favorites let you bookmark frequently-used folders and jump to them instantly.
+### Git sync
 
-### Marking a favorite
+Press `g` to sync the snippets directory with a Git repository. The first time, a dialog asks for the remote; `G` edits the configuration later. Git must be installed.
 
-1. Focus the **Folders** panel and select any folder
-2. Press `f` — the folder gets a `★` indicator; a green status message confirms
-3. Press `f` again to unfavorite
+### Console
 
-> Favorites are saved to `.clidocs_favorites.json` inside the snippets directory and persist across sessions.
+Press `:` on the main screen to open the console (`Cmdline`). Type a command and press `Enter`. `Esc` closes the console, and from inside a command screen `Esc` goes back to the console. Unknown commands show `Unknown command` and a hint to type `cmd`.
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/folder-favorites.png" alt="Folder favorites" width="750">
-</td></tr></table>
+<p align="center">
+  <img src="images/console.png" alt="Console" width="550">
+</p>
 
-### Navigating favorites
+#### `time`
 
-1. Press `F` (uppercase) in the **Folders** panel to open the **Favorites modal**
-2. Use `↑`/`↓` to navigate → `Enter` to jump to that folder
-3. Press `f` inside the modal to unfavorite the selected entry
-4. Press `Esc` or `F` to close
+Work hours calculator. Type your start time as `HH:MM` (for example `08:00`) and press `Enter`. It shows the coffee break, lunch start, lunch end, the normal exit time (8h48 worked) and the maximum exit time (10h worked). `Enter` goes back to the console.
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/favorites-modal.png" alt="Favorites modal" width="750">
-</td></tr></table>
+First, type the start time in the `HH:MM` field and press `Enter` to calculate (`Esc` goes back).
 
-### Returning to the home directory
+<p align="center">
+  <img src="images/console-time.png" alt="time command input" width="550">
+</p>
 
-If you changed the snippets directory, the Folders panel title shows **`H:home`**.  
-Press `H` to instantly return to the original snippets directory.
+Then the result is shown. In the example, an entry at `07:01` gives the coffee break at `08:01`, lunch from `11:01` to `12:01`, the normal exit at `16:49` (8h48 worked) and the maximum exit at `18:01` (10h worked).
 
----
+<p align="center">
+  <img src="images/console-time-result.png" alt="time command result" width="550">
+</p>
 
-## Snippets Directory
+#### `alive`
 
-Press `o` (on Folders or Snippets panel) to open the directory info modal.
+Keeps the computer awake. While this screen is open, clidocs presses the `B` key every 2 seconds, so the system does not lock or go idle. The keypress goes to the focused window, so keep clidocs focused while it runs. `Esc` stops it.
 
-| Action | Description |
-|---|---|
-| `Enter` | Opens the snippets folder in Windows Explorer |
-| `s` | Opens a modern **Windows Explorer-style folder picker** to choose a new directory |
-| `Esc` | Closes the modal |
+<p align="center">
+  <!-- <img src="images/console-alive.png" alt="alive command" width="550"> -->
+</p>
 
-> Changing the directory takes effect immediately. The original default directory (`%USERPROFILE%\clidocs_snippets`) is never deleted.
+#### `whoami`
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/snippet-directory.png" alt="Snippets directory" width="750">
-</td></tr></table>
+Shows information about the author as if a terminal command was run. `Enter` opens the website fantodocs.github.io in the browser, and `Esc` goes back to the console.
 
----
+<p align="center">
+  <img src="images/console-whoami.png" alt="whoami command" width="550">
+</p>
 
-## Neovim Integration
+#### `cmd`
 
-When you press `Enter` on a file in the Snippets panel (or `e` in the Preview panel), clidocs opens **Neovim in a new Windows Terminal window**:
+Shows the list of the commands available in the console, each one with a short description of what it does. It has two tabs: "Console commands" and "Neovim Quick Reference". Use `←`/`→` or `Tab` to switch tabs, `1`/`2` to jump directly, and `↑`/`↓` to scroll. `Enter` or `Esc` goes back to the console. The keyboard shortcuts of the panels are in the help panel, opened with `?` on the main screen.
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/open-in-neovim.png" alt="Open in Neovim" width="750">
-</td></tr></table>
+<p align="center">
+  <img src="images/console-cmd.png" alt="cmd command" width="550">
+</p>
 
-> **Fallback:** If Windows Terminal (`wt`) is not available, Neovim takes over the current terminal.
+#### `nvim`
 
----
+Opens the same help as `cmd`, but directly on the "Neovim Quick Reference" tab. It shows navigation, editing, save and quit, search, commenting and uncommenting several lines, and visual mode. Use `←`/`→` or `Tab` to switch to the "Console commands" tab. `Enter` or `Esc` goes back to the console.
 
-## File Import
+<p align="center">
+  <img src="images/console-nvim.png" alt="nvim command" width="550">
+</p>
 
-Copy any file from your computer into the currently selected folder:
+#### `ls` and `cd`
 
-1. Focus the **Snippets** panel
-2. Press `c`
-3. A native Windows **Open File dialog** appears
-4. Select one or more files → click Open
+`ls` opens a floating panel with a tree view of the directories inside the directory currently open in clidocs (up to 3 levels, hidden folders skipped). Use `↑`/`↓` to scroll. In the panel, type `cd <directory>` (for example `cd Projects` or `cd Projects/App`) and press `Enter`: the panel closes and the Folders and Files panels show the chosen directory. `Esc` goes back to the console. In the console, `cd <directory>` also works directly, and `cd ..` goes to the parent directory.
 
-> Supports **multi-selection** — hold `Ctrl` or `Shift` in the dialog.
+<p align="center">
+  <img src="images/console-ls.png" alt="ls and cd commands" width="450">
+</p>
 
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/import-file.png" alt="Import file" width="750">
-</td></tr></table>
+#### `exit`
+
+Closes clidocs completely (`quit` does the same).
 
 ---
 
-## GitHub Sync
-
-Back up and share your snippets by syncing to a GitHub repository.
-
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/sync-git.png" alt="GitHub sync" width="750">
-</td></tr></table>
-
-### First use
-
-Press `g` — a setup modal appears:
-
-| Field | Example |
-|---|---|
-| **Repository URL** | `https://github.com/user/snippets.git` |
-| **Username** | `your-github-username` |
-| **Email** | `you@example.com` |
-
-Navigate fields with `Enter` or `Tab` / `Shift+Tab`. Config is saved to `.clidocs_git.json`.
-
-<table align="center"><tr><td align="center" width="9999">
-   <img src="images/sync-config.png" alt="Sync configuration" width="400">
-</td></tr></table>
-
-### How sync works
-
-1. `git init` (first time only)
-2. Pulls remote changes first to avoid conflicts
-3. `git add -A` → `git commit` → `git push -u origin main`
-4. Shows a success or error modal
-
-### Change configuration
-
-Press `G` at any time to update the repo URL, username, or email.
-
-<table align="center"><tr><td align="center" width="9999">
-  <img src="images/sync-config.png" alt="Git configuration" width="400">
-</td></tr></table>
-
-> **Note:** The repository must exist on GitHub before syncing. For private repos, ensure credentials are cached via [Git Credential Manager](https://github.com/git-ecosystem/git-credential-manager) or SSH.
-
-<table align="center"><tr><td align="center" width="9999">
-  <img src="images/sync-complete.png" alt="GitHub sync" width="400">
-</td></tr></table>
-
----
-
-## Console Easter Egg
-
-Press `:` from **any panel** to open the `Cmdline` console — a command-line interface inside clidocs.
-
-<table align="center"><tr><td align="center" width="9999">
-  <img src="images/cmdline-screen.png" alt="Console easter egg" width="600">
-</td></tr></table>
-
-### Available commands
-
-| Command | Description |
-|---|---|
-| `time` | **Work hours calculator** — enter your start time (HH:MM) and get coffee break, lunch times, normal exit and maximum exit times |
-| `whoami` | Shows your custom user info (edit the `whoamiText` constant in `console.go`) |
-| `nvim` | Opens the **Neovim Quick Reference** modal — full two-column cheat-sheet for beginners |
-| `help` | Displays all keyboard shortcuts and console commands |
-| `clear` | Clears the console output area |
-| `exit` / `quit` | Closes the console |
-
-### Neovim Quick Reference (`nvim`)
-
-Type `nvim` in the console and press `Enter` to open a large reference modal covering:
-
-- **Navigation** — `hjkl`, `gg`/`G`, `Ctrl+d`/`u`, word and line jumps
-- **Editing** — insert modes (`i`, `a`, `o`), undo/redo, delete, yank, paste
-- **Save & Quit** — `:w`, `:q`, `:wq`, `:q!`
-- **Search** — `/word`, `n`/`N` to cycle matches
-- **Comment multiple lines** — `Ctrl+V` block select → `:` → `'<,'>s/^/#`
-- **Uncomment multiple lines** — `Ctrl+V` block select → `:` → `'<,'>s/^#//`
-- **Visual mode** — `v` (char), `V` (line), `Ctrl+V` (block)
-
-<table align="center"><tr><td align="center" width="9999">
-  <img src="images/cmdline-nvim-guide.png" alt="Neovim Quick Reference" width="600">
-</td></tr></table>
-
-### Work Hours Calculator (`time`)
-
-Based on a standard workday of **8h48** (with 1h lunch), given your entry time:
-
-| Output | Description |
-|---|---|
-| **Coffee break** | Suggested first break (+1h) |
-| **Lunch start** | +4h after entry |
-| **Lunch end** | +1h after lunch start |
-| **Normal exit** | Entry + 8h48 work + 1h lunch |
-| **Maximum exit** | Entry + 10h work + 1h lunch |
-
-<table align="center"><tr><td align="center" width="9999">
-  <img src="images/cmdline-work-hours.png" alt="Time calculator" width="750">
-</td></tr></table>
-
-### Customizing `whoami`
-
-Edit `console.go` and update the `whoamiText` constant to personalize your user info:
-
-```go
-const whoamiText = `
-  Your Name
-  Your Role
-  GitHub: github.com/yourhandle
-  ...
-`
-```
-
-<table align="center"><tr><td align="center" width="9999">
-  <img src="images/cmdline-whoami.png" alt="Whoami command" width="400">
-</td></tr></table>
-
----
-
-## Supported Languages
-
-Syntax highlighting uses **Chroma** with the **GitHub Dark** theme. Each file shows a colored extension badge.
-
-<details>
-<summary><strong>Click to expand the supported languages</strong></summary>
-
-| Extension | Language | Badge color |
-|---|---|---|
-| `.go` | Go | ![#00add8](https://img.shields.io/badge/-go-00add8?style=flat-square) |
-| `.py` | Python | ![#4b9cd3](https://img.shields.io/badge/-py-4b9cd3?style=flat-square) |
-| `.ts` | TypeScript | ![#3178c6](https://img.shields.io/badge/-ts-3178c6?style=flat-square) |
-| `.js` | JavaScript | ![#f0db4f](https://img.shields.io/badge/-js-f0db4f?style=flat-square) |
-| `.tsx` / `.jsx` | React | ![#61dafb](https://img.shields.io/badge/-tsx-61dafb?style=flat-square) |
-| `.rs` | Rust | ![#ce422b](https://img.shields.io/badge/-rs-ce422b?style=flat-square) |
-| `.cs` | C# | ![#9b4f96](https://img.shields.io/badge/-cs-9b4f96?style=flat-square) |
-| `.cpp` / `.cc` | C++ | ![#f34b7d](https://img.shields.io/badge/-cpp-f34b7d?style=flat-square) |
-| `.c` / `.h` | C | ![#6e9bd1](https://img.shields.io/badge/-c-6e9bd1?style=flat-square) |
-| `.java` | Java | ![#b07219](https://img.shields.io/badge/-java-b07219?style=flat-square) |
-| `.kt` | Kotlin | ![#7f52ff](https://img.shields.io/badge/-kt-7f52ff?style=flat-square) |
-| `.swift` | Swift | ![#f05138](https://img.shields.io/badge/-swift-f05138?style=flat-square) |
-| `.sh` / `.bash` | Shell | ![#89e051](https://img.shields.io/badge/-sh-89e051?style=flat-square) |
-| `.ps1` | PowerShell | ![#5391fe](https://img.shields.io/badge/-ps1-5391fe?style=flat-square) |
-| `.rb` | Ruby | ![#cc342d](https://img.shields.io/badge/-rb-cc342d?style=flat-square) |
-| `.php` | PHP | ![#777bb3](https://img.shields.io/badge/-php-777bb3?style=flat-square) |
-| `.vue` | Vue | ![#42b883](https://img.shields.io/badge/-vue-42b883?style=flat-square) |
-| `.svelte` | Svelte | ![#ff3e00](https://img.shields.io/badge/-svelte-ff3e00?style=flat-square) |
-| `.dart` | Dart | ![#00b4ab](https://img.shields.io/badge/-dart-00b4ab?style=flat-square) |
-| `.md` | Markdown | ![#519aba](https://img.shields.io/badge/-md-519aba?style=flat-square) |
-| `.html` | HTML | ![#e34c26](https://img.shields.io/badge/-html-e34c26?style=flat-square) |
-| `.css` | CSS | ![#264de4](https://img.shields.io/badge/-css-264de4?style=flat-square) |
-| `.scss` | SCSS | ![#c6538c](https://img.shields.io/badge/-scss-c6538c?style=flat-square) |
-| `.json` | JSON | ![#f1c40f](https://img.shields.io/badge/-json-f1c40f?style=flat-square) |
-| `.yaml` / `.yml` | YAML | ![#f1c40f](https://img.shields.io/badge/-yml-f1c40f?style=flat-square) |
-| `.toml` | TOML | ![#e67e22](https://img.shields.io/badge/-toml-e67e22?style=flat-square) |
-| `.sql` | SQL | ![#e38c00](https://img.shields.io/badge/-sql-e38c00?style=flat-square) |
-| `.xml` | XML | ![#0060ac](https://img.shields.io/badge/-xml-0060ac?style=flat-square) |
-| `.lua` | Lua | ![#00007c](https://img.shields.io/badge/-lua-00007c?style=flat-square) |
-| `.tf` / `.hcl` | Terraform | ![#7b42bc](https://img.shields.io/badge/-tf-7b42bc?style=flat-square) |
-| `.r` | R | ![#198ce7](https://img.shields.io/badge/-r-198ce7?style=flat-square) |
-| `.ex` / `.exs` | Elixir | ![#6e4a7e](https://img.shields.io/badge/-ex-6e4a7e?style=flat-square) |
-| `.vim` | Vim Script | ![#199f4b](https://img.shields.io/badge/-vim-199f4b?style=flat-square) |
-| `.env` | Dotenv | ![#ecd53f](https://img.shields.io/badge/-env-ecd53f?style=flat-square) |
-| `.txt` / `.conf` | Plain text | ![#6e7681](https://img.shields.io/badge/-txt-6e7681?style=flat-square) |
-
-</details>
-
----
-
-## Project Structure
-
-The project is currently in transition to Clean Architecture. Due to Bubble Tea framework constraints requiring Update/View methods in the same package as Model, the core application files remain in the root while auxiliary files have been reorganized:
+## Project structure
 
 ```
 clidocs/
-├── cmd/
-│   ├── clidocs-installer/       # clidocs-installer.exe (downloads and installs the latest release)
-│   └── install/                 # Legacy local installer
-├── internal/
-│   └── installer/               # Shared installer TUI used by `--install` and clidocs-installer
-├── helpcmd.go                   # `clidocs --help` tabbed help
-├── uninstall.go                 # `clidocs --uninstall` TUI
-├── *.go                          # Core application files (main.go, model.go, view.go, update.go, gitconfig.go, gitsync.go, etc.)
-├── console_modals.go            # Console-related modals (renamed from internal/ui/modals/console.go)
-├── file_modals.go               # File operation modals
-├── folder_modals.go             # Folder management modals
-├── git_modals.go                # Git configuration modals
-├── other_modals.go              # Error and editor modals
-└── README.md
++-- cmd/
+�   +-- clidocs-installer/   # clidocs-installer.exe (downloads and installs the latest release)
+�   +-- install/             # Legacy local installer
++-- internal/installer/      # Installer TUI shared by --install and clidocs-installer
++-- scripts/                 # Helper scripts (round-images.ps1, make-title.ps1)
++-- docs/                    # Extra documentation
++-- images/                  # README images
++-- main.go                  # Entry point, CLI flags and version
++-- model.go, view.go, update.go   # Core Bubble Tea application
++-- splash.go, dirbrowser.go       # Start screen and directory browser
++-- folder.go, file.go, filecopy.go, dirs.go   # Folder and file operations
++-- search.go, searchhl.go   # Search and preview match highlighting
++-- highlight.go, imagepreview.go, icons.go    # Syntax highlighting, image preview, icons
++-- git.go, gitconfig.go     # Git sync
++-- console.go, alive.go, other.go   # Console commands (ls, cd, time, alive, whoami)
++-- helpcmd.go               # clidocs --help, ? panel and console cmd help
++-- uninstall.go             # clidocs --uninstall
++-- styles.go                # Colors and styles
 ```
-
-**Note:** A reorganização para Clean Architecture foi iniciada mas não pôde ser completada devido às dependências circulares do Bubble Tea framework. Os arquivos principais (model.go, view.go, update.go) precisam permanecer no mesmo package. Futuras tentativas de refatoração podem considerar:
-1. Migrar para um framework TUI diferente que permita melhor separação de pacotes
-2. Reescrever a aplicação usando uma arquitetura que não dependa de métodos Update/View no mesmo package do Model
-3. Aceitar a estrutura atual como um compromisso razoável para aplicações Bubble Tea
-
----
 
 ## Dependencies
 
 | Package | Purpose |
 |---|---|
-| `github.com/charmbracelet/bubbletea` | TUI framework (Elm architecture) |
+| `github.com/charmbracelet/bubbletea` | TUI framework |
 | `github.com/charmbracelet/bubbles` | Text input and progress bar components |
 | `github.com/charmbracelet/lipgloss` | Layout and styling |
-| `github.com/charmbracelet/glamour` | Markdown rendering (GitHub Dark style) |
+| `github.com/charmbracelet/glamour` | Markdown rendering |
 | `github.com/alecthomas/chroma/v2` | Syntax highlighting |
-| `github.com/atotto/clipboard` | Clipboard write support |
-
-### How to install de dependencies
+| `github.com/atotto/clipboard` | Clipboard support |
 
 ```bash
 go mod tidy
 ```
-
----
-
-<div align="center">
-
-Made with ☕ and Go · Dark theme · Keyboard-first
-
-Created by Gabriel Stundner
-
-</div>
